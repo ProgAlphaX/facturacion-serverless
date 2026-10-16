@@ -33,7 +33,7 @@ flowchart LR
 | Fase | Descripción | Estado |
 |---|---|---|
 | 1 | Base del repositorio | ✅ |
-| 2 | API con reglas SUNAT | ⏳ |
+| 2 | API con reglas SUNAT | ✅ |
 | 3 | SUNAT simulada (SOAP) | ⏳ |
 | 4 | Contenedores Docker | ⏳ |
 | 5 | Infraestructura con Terraform | ⏳ |
@@ -47,7 +47,22 @@ flowchart LR
 - Terraform 1.10 o superior
 - AWS CLI v2 + Session Manager plugin
 
-> Las instrucciones para ejecutar el proyecto se agregan en la Fase 4.
+## API (carpeta `api/`)
+| Método y ruta | Descripción |
+|---|---|
+| `GET /health` | Estado de la API |
+| `POST /comprobantes` | Emite una factura (01) o boleta (03): reglas SUNAT → XML UBL 2.1 → firma → SOAP → CDR → PDF |
+| `GET /comprobantes/:id` | Consulta un comprobante (`RUC-TIPO-SERIE-NUMERO`) |
+
+Pruebas automáticas:
+```bash
+cd api
+npm install
+npm run certificado   # certificado de prueba en api/certs/ (no se sube)
+npm test
+```
+
+> Las instrucciones para ejecutar todo el sistema con Docker se agregan en la Fase 4.
 
 ## Configuración
 ```bash
