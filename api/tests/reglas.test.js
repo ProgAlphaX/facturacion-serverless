@@ -59,6 +59,11 @@ describe('Esquema del JSON', () => {
     const campos = errores.map((e) => e.campo);
     expect(campos).toEqual(expect.arrayContaining(['serie', 'numero', 'cliente', 'items', 'totales']));
   });
+
+  test('los mensajes de error están en español', () => {
+    const { errores } = validarEsquema({ tipo: '01' });
+    expect(errores.find((e) => e.campo === 'serie').mensaje).toMatch(/^Entrada inválida/);
+  });
 });
 
 describe('Reglas de negocio SUNAT', () => {

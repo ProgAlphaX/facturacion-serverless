@@ -3,6 +3,9 @@
 
 const { z } = require('zod');
 
+// Mensajes de validación en español
+z.config(z.locales.es());
+
 const texto = z.string().trim().min(1);
 
 const esquemaComprobante = z.object({
