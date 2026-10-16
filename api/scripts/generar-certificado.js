@@ -1,6 +1,5 @@
-// Genera un certificado digital AUTOFIRMADO de prueba para firmar comprobantes.
-// En producción el certificado lo emite una entidad autorizada; para el proyecto basta uno de prueba.
-// Uso: npm run certificado  →  crea certs/certificado.pem y certs/llave-privada.pem (ignorados por Git)
+// Certificado AUTOFIRMADO solo para pruebas: en producción lo emite una entidad autorizada.
+// Se guarda en certs/, que está en .gitignore.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -8,7 +7,7 @@ const path = require('node:path');
 const forge = require('node-forge');
 
 function generarCertificado({ ruc = '20000000001', razonSocial = 'EMPRESA DEMO S.A.C.', anios = 1 } = {}) {
-  // Las llaves RSA se generan con el módulo nativo de Node (mucho más rápido que forge)
+  // Llaves con el módulo nativo de Node: forge tarda varios segundos en generarlas.
   const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
     modulusLength: 2048,
     publicKeyEncoding: { type: 'spki', format: 'pem' },

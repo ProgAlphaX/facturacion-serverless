@@ -1,6 +1,4 @@
-// Genera la representación impresa (PDF) del comprobante aceptado, con el hash de la firma
-// y el código QR en el formato de SUNAT:
-// RUC|TIPO|SERIE|NÚMERO|IGV|TOTAL|FECHA|TIPO DOC CLIENTE|NÚM DOC CLIENTE|HASH|
+// Formato SUNAT del QR: RUC|TIPO|SERIE|NÚMERO|IGV|TOTAL|FECHA|TIPO DOC CLIENTE|NÚM DOC CLIENTE|HASH|
 
 const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
@@ -46,7 +44,6 @@ async function generarPdf({ emisor, comprobante: c, hash }) {
     doc.on('error', reject);
   });
 
-  // Encabezado: emisor (izquierda) y recuadro del comprobante (derecha)
   doc.font('Helvetica-Bold').fontSize(14).text(emisor.razonSocial, 40, 50, { width: 300 });
   doc.font('Helvetica').fontSize(9).text(`RUC: ${emisor.ruc}`, 40, doc.y + 4);
 
@@ -56,7 +53,6 @@ async function generarPdf({ emisor, comprobante: c, hash }) {
     .text(nombreTipo, { width: 195, align: 'center' })
     .text(`${c.serie}-${correlativo(c.numero)}`, { width: 195, align: 'center' });
 
-  // Datos del cliente
   doc.font('Helvetica').fontSize(9);
   const tipoDocCliente = { 6: 'RUC', 1: 'DNI' }[c.cliente.tipoDoc] || 'DOC';
   doc.text(`Fecha de emisión: ${c.fechaEmision}`, 40, 140);
@@ -64,7 +60,6 @@ async function generarPdf({ emisor, comprobante: c, hash }) {
   doc.text(`${tipoDocCliente}: ${c.cliente.numDoc}`);
   doc.text(`Moneda: ${c.moneda}`);
 
-  // Tabla de ítems
   const columnas = [
     { titulo: 'Cant.', x: 40, ancho: 40 },
     { titulo: 'Unid.', x: 80, ancho: 40 },
@@ -93,7 +88,6 @@ async function generarPdf({ emisor, comprobante: c, hash }) {
   });
   doc.moveTo(40, y).lineTo(555, y).stroke();
 
-  // Totales
   y += 10;
   const filaTotal = (etiqueta, valor, negrita = false) => {
     doc.font(negrita ? 'Helvetica-Bold' : 'Helvetica');
@@ -105,7 +99,6 @@ async function generarPdf({ emisor, comprobante: c, hash }) {
   filaTotal('IGV (18%):', c.totales.igv);
   filaTotal('Importe total:', c.totales.total, true);
 
-  // Pie: QR, hash y leyenda
   y += 20;
   doc.image(qr, 40, y, { width: 110 });
   doc.font('Helvetica').fontSize(8)

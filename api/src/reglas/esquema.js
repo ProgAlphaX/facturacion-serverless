@@ -1,9 +1,7 @@
-// Forma del JSON que recibe POST /comprobantes: campos obligatorios y tipos.
-// Las reglas de negocio (RUC, IGV, montos...) se validan después en reglas-negocio.js.
+// Solo valida la forma del JSON; las reglas SUNAT están en reglas-negocio.js.
 
 const { z } = require('zod');
 
-// Mensajes de validación en español
 z.config(z.locales.es());
 
 const texto = z.string().trim().min(1);
@@ -34,7 +32,6 @@ const esquemaComprobante = z.object({
   }),
 });
 
-// Devuelve { datos } si la forma es correcta o { errores } con todos los problemas.
 function validarEsquema(cuerpo) {
   const resultado = esquemaComprobante.safeParse(cuerpo);
   if (resultado.success) return { datos: resultado.data, errores: [] };

@@ -1,5 +1,4 @@
-// Envía el comprobante firmado a SUNAT por SOAP (método sendBill), igual que el servicio real:
-// el XML va comprimido en ZIP, codificado en Base64, con usuario y clave SOL (WS-Security).
+// Igual que el servicio real de SUNAT: XML en ZIP, Base64 y usuario RUC+SOL por WS-Security.
 
 const JSZip = require('jszip');
 const { DOMParser } = require('@xmldom/xmldom');
@@ -55,7 +54,6 @@ const primerTexto = (doc, nombreLocal) => {
 const codigoDeFalla = (faultcode) => (faultcode && faultcode.match(/(\d{4})$/)?.[1]) || null;
 
 function crearClienteSunat({ url, ruc, usuario, clave, fetch = globalThis.fetch }) {
-  // Devuelve el ZIP del CDR (Buffer). Lanza ErrorSunat si SUNAT responde con falla o no responde.
   async function enviar(nombreZip, zipBuffer) {
     const sobre = construirSobre({
       usuario: `${ruc}${usuario}`,

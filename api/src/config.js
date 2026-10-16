@@ -1,6 +1,3 @@
-// Lee y valida las variables de entorno. Si falta alguna, la API no arranca
-// y dice exactamente cuál falta (nada de valores fijos en el código).
-
 const OBLIGATORIAS = [
   'EMISOR_RUC',
   'EMISOR_RAZON_SOCIAL',

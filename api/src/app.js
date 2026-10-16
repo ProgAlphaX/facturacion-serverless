@@ -1,6 +1,4 @@
-// Arma la aplicación Express (rutas + seguridad).
-// Está separada de server.js para poder probarla sin abrir un puerto
-// y para reutilizarla dentro de una Lambda en el APF3.
+// Separada de server.js para probarla sin abrir un puerto y reutilizarla en Lambda (APF3).
 
 const express = require('express');
 const helmet = require('helmet');

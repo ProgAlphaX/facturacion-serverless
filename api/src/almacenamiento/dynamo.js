@@ -1,5 +1,4 @@
-// Guarda y consulta el estado de los comprobantes en DynamoDB.
-// Clave: pk = EMISOR#<ruc> · sk = CPE#<tipo>-<serie>-<numero>
+// Clave: pk = EMISOR#<ruc> · sk = CPE#<tipo>-<serie>-<numero>.
 // La escritura condicional impide registrar dos veces el mismo comprobante (regla R12).
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
@@ -21,8 +20,7 @@ function crearClienteDynamo({ region, endpoint }) {
 }
 
 function crearRepositorio({ tabla, cliente }) {
-  // Registra el comprobante. Devuelve false si ya existe (salvo que haya quedado en ERROR_ENVIO,
-  // en cuyo caso se permite reintentar).
+  // Un comprobante en ERROR_ENVIO puede volver a registrarse para reintentar el envío.
   async function reservar(registro) {
     try {
       await cliente.send(new PutCommand({

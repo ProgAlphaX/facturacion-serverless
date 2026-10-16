@@ -1,6 +1,4 @@
-// Firma digital del XML (XMLDSig "enveloped"), como exige SUNAT.
-// La firma se guarda dentro del mismo XML, en ext:ExtensionContent.
-// Si alguien cambia un solo dato del comprobante, la verificación falla.
+// Firma XMLDSig "enveloped" (exigida por SUNAT): va dentro del mismo XML, en ext:ExtensionContent.
 
 const { SignedXml } = require('xml-crypto');
 const { DOMParser } = require('@xmldom/xmldom');
@@ -19,7 +17,7 @@ function buscarNodo(xml, ns, nombre) {
 }
 
 function crearFirmador({ certPem, keyPem }) {
-  // Devuelve el XML firmado y el hash (DigestValue) que va en el PDF y el QR.
+  // El hash (DigestValue) se imprime en el PDF y en el QR.
   function firmar(xml) {
     const firma = new SignedXml({
       privateKey: keyPem,
@@ -44,7 +42,6 @@ function crearFirmador({ certPem, keyPem }) {
     return { xmlFirmado, hash };
   }
 
-  // Comprueba que la firma sea válida con el certificado público.
   function verificar(xmlFirmado) {
     const nodoFirma = buscarNodo(xmlFirmado, NS_DS, 'Signature');
     if (!nodoFirma) return false;

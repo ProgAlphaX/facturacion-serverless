@@ -1,5 +1,3 @@
-// Versiones en memoria de DynamoDB y S3 para probar la API sin infraestructura.
-
 function crearRepositorioEnMemoria() {
   const items = new Map();
   return {

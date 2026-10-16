@@ -1,5 +1,3 @@
-// Endpoints de comprobantes: emitir (POST) y consultar (GET).
-
 const { Router } = require('express');
 const { FORMATO_ID } = require('../almacenamiento/dynamo');
 

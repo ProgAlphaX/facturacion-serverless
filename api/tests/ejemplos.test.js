@@ -1,5 +1,3 @@
-// Comprueba que cada ejemplo de la carpeta ejemplos/ se comporte como dice su nombre.
-
 const fs = require('node:fs');
 const path = require('node:path');
 const { validarEsquema } = require('../src/reglas/esquema');

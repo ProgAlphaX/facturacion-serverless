@@ -1,5 +1,4 @@
-// Guarda los archivos del comprobante en S3: XML firmado, CDR y PDF.
-// En local apunta a MinIO (compatible con S3); en AWS al bucket real (cifrado por defecto en el bucket).
+// Sin cabecera de cifrado: el bucket de AWS cifra por defecto y MinIO (local) no la soporta.
 
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 

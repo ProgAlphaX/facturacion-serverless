@@ -1,5 +1,3 @@
-// Construye un CDR de prueba (como el que devolvería SUNAT) para las pruebas automáticas.
-
 const JSZip = require('jszip');
 
 async function crearCdrZip({ id, codigo = '0', descripcion = `El comprobante ${id} ha sido aceptado`, notas = [] }) {

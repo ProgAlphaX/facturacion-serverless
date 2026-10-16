@@ -1,5 +1,3 @@
-// Punto de entrada: carga la configuración, conecta las piezas y enciende la API.
-
 const fs = require('node:fs');
 const { cargarConfig } = require('./config');
 const { crearApp } = require('./app');
@@ -36,7 +34,7 @@ const servidor = app.listen(config.puerto, () => {
   console.log(`API de facturación escuchando en el puerto ${config.puerto}`);
 });
 
-// Docker envía SIGTERM al detener el contenedor: cerramos ordenadamente.
+// Docker envía SIGTERM al detener el contenedor.
 process.on('SIGTERM', () => {
   servidor.close(() => process.exit(0));
 });

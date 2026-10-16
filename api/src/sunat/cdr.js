@@ -1,5 +1,4 @@
-// Lee la Constancia de Recepción (CDR) que devuelve SUNAT: un ZIP con R-<id>.xml (ApplicationResponse).
-// Códigos: 0 = aceptado · 2000–3999 = rechazado · 4000+ = aceptado con observaciones.
+// Códigos del CDR: 0 = aceptado · 2000–3999 = rechazado · 4000+ = aceptado con observaciones.
 
 const JSZip = require('jszip');
 const { DOMParser } = require('@xmldom/xmldom');

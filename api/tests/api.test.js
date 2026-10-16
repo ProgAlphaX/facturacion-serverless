@@ -23,7 +23,6 @@ const factura = (cambios = {}) => ({
   ...cambios,
 });
 
-// SUNAT simulada: responde según lo que se configure en cada prueba.
 function sunatFalsa(responder = (id) => crearCdrZip({ id })) {
   return {
     recibidos: [],
