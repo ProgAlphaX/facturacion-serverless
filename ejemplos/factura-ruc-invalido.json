@@ -1,0 +1,31 @@
+{
+  "tipo": "01",
+  "serie": "F001",
+  "numero": 2,
+  "fechaEmision": "2026-10-16",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDoc": "6",
+    "numDoc": "20100070971",
+    "nombre": "CLIENTE CON RUC MAL ESCRITO S.A."
+  },
+  "items": [
+    {
+      "descripcion": "Servicio de consultoría",
+      "unidad": "ZZ",
+      "cantidad": 2,
+      "valorUnitario": 100
+    },
+    {
+      "descripcion": "Soporte técnico mensual",
+      "unidad": "ZZ",
+      "cantidad": 1,
+      "valorUnitario": 50
+    }
+  ],
+  "totales": {
+    "valorVenta": 250,
+    "igv": 45,
+    "total": 295
+  }
+}

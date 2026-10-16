@@ -1,0 +1,25 @@
+{
+  "tipo": "03",
+  "serie": "B001",
+  "numero": 1,
+  "fechaEmision": "2026-10-16",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDoc": "1",
+    "numDoc": "12345678",
+    "nombre": "JUAN PÉREZ QUISPE"
+  },
+  "items": [
+    {
+      "descripcion": "Mouse inalámbrico",
+      "unidad": "NIU",
+      "cantidad": 3,
+      "valorUnitario": 50
+    }
+  ],
+  "totales": {
+    "valorVenta": 150,
+    "igv": 27,
+    "total": 177
+  }
+}
