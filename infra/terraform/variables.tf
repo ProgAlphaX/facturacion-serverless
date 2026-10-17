@@ -45,6 +45,16 @@ variable "sunat_clave" {
   sensitive = true
 }
 
+variable "alert_email" {
+  description = "Correo que recibe las alertas del presupuesto"
+  type        = string
+}
+
+variable "presupuesto_usd" {
+  type    = string
+  default = "1"
+}
+
 variable "enable_nat" {
   description = "Crea el NAT Gateway (cobra por hora). Solo para pruebas y demo."
   type        = bool
