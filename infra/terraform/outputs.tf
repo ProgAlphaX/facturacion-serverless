@@ -13,3 +13,11 @@ output "subredes_privadas" {
 output "nat_encendido" {
   value = var.enable_nat
 }
+
+output "tabla_dynamodb" {
+  value = aws_dynamodb_table.comprobantes.name
+}
+
+output "bucket_comprobantes" {
+  value = aws_s3_bucket.comprobantes.bucket
+}
