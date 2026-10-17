@@ -34,7 +34,7 @@ flowchart LR
 |---|---|---|
 | 1 | Base del repositorio | ✅ |
 | 2 | API con reglas SUNAT | ✅ |
-| 3 | SUNAT simulada (SOAP) | ⏳ |
+| 3 | SUNAT simulada (SOAP) | ✅ |
 | 4 | Contenedores Docker | ⏳ |
 | 5 | Infraestructura con Terraform | ⏳ |
 | 6 | Pruebas en AWS | ⏳ |
@@ -60,6 +60,24 @@ cd api
 npm install
 npm run certificado   # certificado de prueba en api/certs/ (no se sube)
 npm test
+```
+
+## SUNAT simulada (carpeta `sunat-mock/`)
+Servicio SOAP que imita la ventanilla `sendBill` de SUNAT y responde con un CDR. Así la demo no depende del entorno beta de SUNAT.
+
+| Respuesta | Cuándo |
+|---|---|
+| CDR `0` – aceptado | Comprobante firmado correctamente |
+| CDR `2335` – rechazado | El XML fue modificado después de firmar (firma inválida) |
+| CDR `2017` – rechazado | Factura a un RUC inactivo del padrón simulado (`RUCS_INACTIVOS`) |
+| Falla `0102` | Usuario o clave SOL incorrectos |
+| Falla `0151` / `0154` / `0155` / `0161` | Nombre del ZIP incorrecto, de otro RUC, ZIP dañado o sin el XML |
+
+```bash
+cd sunat-mock
+npm install
+npm test
+npm start            # http://localhost:4000/health
 ```
 
 > Las instrucciones para ejecutar todo el sistema con Docker se agregan en la Fase 4.
