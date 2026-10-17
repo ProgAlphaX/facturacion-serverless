@@ -36,7 +36,7 @@ flowchart LR
 | 2 | API con reglas SUNAT | ✅ |
 | 3 | SUNAT simulada (SOAP) | ✅ |
 | 4 | Contenedores Docker | ✅ |
-| 5 | Infraestructura con Terraform | ⏳ |
+| 5 | Infraestructura con Terraform | ✅ |
 | 6 | Pruebas en AWS | ⏳ |
 | 7 | Cierre del avance APF2 | ⏳ |
 
@@ -108,6 +108,55 @@ docker compose ps        # api, sunat-mock y s3-local "healthy"; dynamodb-init "
 - Las pruebas de la API están en `postman/` (importar en Postman y ejecutar con el Runner).
 - Los datos se guardan en volúmenes: sobreviven a `docker compose down`. Para borrarlos: `docker compose down -v`.
 - `docker-compose.aws.yml` es la versión para la EC2: solo `api` y `sunat-mock`, con DynamoDB y S3 reales y el rol IAM de la instancia.
+
+## Infraestructura en AWS (carpeta `infra/terraform/`)
+```mermaid
+flowchart TB
+    subgraph VPC["VPC 10.0.0.0/16 · us-east-1"]
+        subgraph A["us-east-1a"]
+            PA["public-a 10.0.1.0/24<br/>NAT Gateway ⏻"]
+            PRA["private-a 10.0.11.0/24<br/>EC2 t3.micro ⏻ sin IP pública"]
+        end
+        subgraph B["us-east-1b"]
+            PB["public-b 10.0.2.0/24"]
+            PRB["private-b 10.0.12.0/24"]
+        end
+        IGW[Internet Gateway]
+        EP[Gateway Endpoints S3 + DynamoDB]
+    end
+    PA --> IGW
+    PRA -->|0.0.0.0/0| PA
+    PRA --> EP
+    EP --> DDB[(DynamoDB on-demand)]
+    EP --> S3[(S3 privado y cifrado)]
+    PRA -.certificado.-> SSM[SSM Parameter Store]
+```
+⏻ Recursos que cobran por hora: se crean solo para pruebas y demo.
+
+| Archivo | Recursos |
+|---|---|
+| `bootstrap/` | Bucket S3 del state (versionado, cifrado, privado) |
+| `red.tf` | VPC, 2 subredes públicas y 2 privadas en 2 zonas, Internet Gateway, NAT (opcional), tablas de rutas, Gateway Endpoints |
+| `seguridad.tf` | Security Group sin reglas de entrada, rol IAM de mínimo privilegio |
+| `datos.tf` | DynamoDB `PAY_PER_REQUEST` con PITR, bucket S3 (bloqueo público, cifrado, versionado, ciclo de vida, solo TLS) |
+| `secretos.tf` | Certificado de firma en SSM Parameter Store (llave como `SecureString`) |
+| `computo.tf` | EC2 t3.micro en subred privada, IMDSv2, disco cifrado; `user-data.sh.tftpl` instala Docker y levanta `docker-compose.aws.yml` |
+| `costos.tf` | AWS Budget mensual con alertas por correo |
+
+```powershell
+cd infra/terraform
+copy backend.hcl.example backend.hcl            # completar el ID de la cuenta
+copy terraform.tfvars.example terraform.tfvars  # completar el correo
+terraform init -backend-config="backend.hcl"
+terraform apply                                  # capa permanente: costo ~0
+```
+
+| Acción | Comando | Costo |
+|---|---|---|
+| Encender NAT + EC2 | `.\scripts\encender.ps1` | ~0.06 USD/h |
+| Apagar NAT + EC2 (conserva datos) | `.\scripts\apagar.ps1` | 0 |
+| Entrar a la EC2 (sin SSH) | `aws ssm start-session --target <id>` | — |
+| Borrar todo al terminar el curso | `terraform destroy` | — |
 
 ## Configuración
 ```bash
