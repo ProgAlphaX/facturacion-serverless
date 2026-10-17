@@ -37,7 +37,7 @@ flowchart LR
 | 3 | SUNAT simulada (SOAP) | ✅ |
 | 4 | Contenedores Docker | ✅ |
 | 5 | Infraestructura con Terraform | ✅ |
-| 6 | Pruebas en AWS | ⏳ |
+| 6 | Pruebas en AWS | ✅ |
 | 7 | Cierre del avance APF2 | ⏳ |
 
 ## Requisitos
@@ -157,6 +157,24 @@ terraform apply                                  # capa permanente: costo ~0
 | Apagar NAT + EC2 (conserva datos) | `.\scripts\apagar.ps1` | 0 |
 | Entrar a la EC2 (sin SSH) | `aws ssm start-session --target <id>` | — |
 | Borrar todo al terminar el curso | `terraform destroy` | — |
+
+### Probar en AWS
+La EC2 no tiene IP pública ni puertos abiertos: las pruebas se ejecutan **desde dentro** con Session Manager.
+```powershell
+.\scripts\encender.ps1                              # NAT + EC2; esperar ~5 min al arranque
+aws ssm start-session --target <id-de-la-ec2>       # o Consola EC2 → Conectar → Administrador de sesiones
+```
+```bash
+cd /opt/facturacion
+sudo docker compose -f docker-compose.aws.yml ps    # api y sunat-mock "healthy"
+bash scripts/probar-api.sh                          # 8 casos: aceptado, rechazado, R08, R10, R12, consulta
+sudo reboot                                         # persistencia: los contenedores vuelven solos (restart: always)
+```
+```powershell
+.\scripts\apagar.ps1                                # borra NAT + EC2; DynamoDB y S3 se conservan
+```
+
+Resultado de la prueba del 17/10/2026: 8/8 casos correctos en AWS, persistencia verificada tras reinicio, ~41 min encendido (≈ 0.04 USD).
 
 ## Configuración
 ```bash
