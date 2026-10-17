@@ -87,3 +87,9 @@ variable "compose_version" {
   type        = string
   default     = "v5.6.0"
 }
+
+variable "buildx_version" {
+  description = "Versión fija de Docker Buildx (requerida por Compose para construir imágenes)"
+  type        = string
+  default     = "v0.38.0"
+}

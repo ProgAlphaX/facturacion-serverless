@@ -30,6 +30,7 @@ resource "aws_instance" "app" {
     repo_url            = var.repo_url
     repo_branch         = var.repo_branch
     compose_version     = var.compose_version
+    buildx_version      = var.buildx_version
     tabla               = aws_dynamodb_table.comprobantes.name
     bucket              = aws_s3_bucket.comprobantes.bucket
     param_certificado   = aws_ssm_parameter.certificado.name

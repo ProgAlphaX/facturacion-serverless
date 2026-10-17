@@ -9,6 +9,10 @@ mkdir -p /usr/local/lib/docker/cli-plugins
 curl -fsSL "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-x86_64" \
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+# Compose v5 necesita buildx >= 0.17 para construir imágenes y Amazon Linux no lo incluye
+curl -fsSL "https://github.com/docker/buildx/releases/download/${buildx_version}/buildx-${buildx_version}.linux-amd64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
 # t3.micro tiene 1 GB de RAM: el swap evita que el build de las imágenes se quede sin memoria
 if [ ! -f /swapfile ]; then
