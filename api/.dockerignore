@@ -1,0 +1,9 @@
+node_modules
+tests
+certs
+coverage
+scripts/generar-certificado.js
+.env*
+*.log
+Dockerfile
+.dockerignore
