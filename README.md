@@ -35,7 +35,7 @@ flowchart LR
 | 1 | Base del repositorio | ✅ |
 | 2 | API con reglas SUNAT | ✅ |
 | 3 | SUNAT simulada (SOAP) | ✅ |
-| 4 | Contenedores Docker | ⏳ |
+| 4 | Contenedores Docker | ✅ |
 | 5 | Infraestructura con Terraform | ⏳ |
 | 6 | Pruebas en AWS | ⏳ |
 | 7 | Cierre del avance APF2 | ⏳ |
@@ -80,7 +80,34 @@ npm test
 npm start            # http://localhost:4000/health
 ```
 
-> Las instrucciones para ejecutar todo el sistema con Docker se agregan en la Fase 4.
+## Ejecutar todo con Docker
+```mermaid
+flowchart LR
+    P[Postman] -->|:3000| API[api]
+    API -->|SOAP| SM[sunat-mock]
+    API --> DDB[(dynamodb-local)]
+    API --> S3[(s3-local)]
+    INIT[dynamodb-init] -.crea la tabla.-> DDB
+```
+
+```bash
+cp .env.example .env
+cd api && npm install && npm run certificado && cd ..   # certificado de prueba (solo la primera vez)
+docker compose up -d --build
+docker compose ps        # api, sunat-mock y s3-local "healthy"; dynamodb-init "Exited (0)"
+```
+
+| Contenedor | Imagen | Puerto |
+|---|---|---|
+| `api` | `api/Dockerfile` (multi-stage, `node:22-alpine`, usuario no-root) | 3000 |
+| `sunat-mock` | `sunat-mock/Dockerfile` (multi-stage, `node:22-alpine`, usuario no-root) | 4000 |
+| `dynamodb-local` | `amazon/dynamodb-local` | 8000 |
+| `s3-local` | `adobe/s3mock` (crea el bucket al iniciar) | 9090 |
+| `dynamodb-init` | misma imagen de `api`: crea la tabla y termina | — |
+
+- Las pruebas de la API están en `postman/` (importar en Postman y ejecutar con el Runner).
+- Los datos se guardan en volúmenes: sobreviven a `docker compose down`. Para borrarlos: `docker compose down -v`.
+- `docker-compose.aws.yml` es la versión para la EC2: solo `api` y `sunat-mock`, con DynamoDB y S3 reales y el rol IAM de la instancia.
 
 ## Configuración
 ```bash
