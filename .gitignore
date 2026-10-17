@@ -42,6 +42,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+backend.hcl
 # Sí se sube: .terraform.lock.hcl (fija las versiones de los providers)
 
 # ---------- Node.js ----------

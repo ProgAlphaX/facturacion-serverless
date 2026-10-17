@@ -1,0 +1,7 @@
+# Copiar como backend.hcl (no se sube) y reemplazar <ID_CUENTA>.
+# Uso: terraform init -backend-config=backend.hcl
+bucket       = "fe-tfstate-<ID_CUENTA>"
+key          = "facturacion/dev/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true
