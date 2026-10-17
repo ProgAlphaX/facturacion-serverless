@@ -21,3 +21,15 @@ output "tabla_dynamodb" {
 output "bucket_comprobantes" {
   value = aws_s3_bucket.comprobantes.bucket
 }
+
+output "ec2_id" {
+  value = var.enable_ec2 ? aws_instance.app[0].id : "apagada"
+}
+
+output "ec2_ip_privada" {
+  value = var.enable_ec2 ? aws_instance.app[0].private_ip : "apagada"
+}
+
+output "entrar_a_la_ec2" {
+  value = var.enable_ec2 ? "aws ssm start-session --target ${aws_instance.app[0].id}" : "EC2 apagada"
+}
