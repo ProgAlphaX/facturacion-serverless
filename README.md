@@ -28,6 +28,9 @@ flowchart LR
 | `infra/terraform/` | Infraestructura como código: red, DynamoDB, S3, EC2 |
 | `postman/` | Colección de pruebas de la API |
 | `ejemplos/` | Comprobantes de ejemplo (válidos e inválidos) y catálogos SUNAT |
+| `scripts/` | `encender.ps1` / `apagar.ps1` (NAT + EC2 bajo demanda) y `probar-api.sh` (pruebas de humo) |
+| `docker-compose.yml` | Entorno local completo: API, SUNAT simulada, DynamoDB local y S3 local |
+| `docker-compose.aws.yml` | Versión para la EC2: API y SUNAT simulada con DynamoDB y S3 reales |
 
 ## Estado del proyecto
 | Fase | Descripción | Estado |
@@ -38,7 +41,7 @@ flowchart LR
 | 4 | Contenedores Docker | ✅ |
 | 5 | Infraestructura con Terraform | ✅ |
 | 6 | Pruebas en AWS | ✅ |
-| 7 | Cierre del avance APF2 | ⏳ |
+| 7 | Cierre del avance APF2 | ✅ |
 
 ## Requisitos
 - Git
@@ -186,5 +189,19 @@ cp .env.example .env   # luego completa tus valores
 - Mensajes de commit con [Conventional Commits](https://www.conventionalcommits.org/es/): `feat:`, `fix:`, `docs:`, `chore:`.
 - **Nunca** se suben: `.env`, llaves de AWS, certificados (`.pem`, `.pfx`, `.key`), archivos `.tfstate` ni `.tfvars`.
 
+## Próximos pasos (APF3)
+La lógica ya está separada en pasos independientes (`api/src/servicios/emitir-comprobante.js`), preparada para pasar a una arquitectura 100 % serverless:
+
+| Componente | APF2 (actual) | APF3 |
+|---|---|---|
+| Cómputo | Contenedores en EC2 | Funciones **AWS Lambda** desplegadas con **Serverless Framework** |
+| Orquestación | Pasos en secuencia dentro de la API | **Step Functions**: validar → XML → firmar → enviar → PDF, con reintentos |
+| Exposición | Solo red privada | **API Gateway** con JWT, API keys y límite de peticiones (rate limiting) |
+| Eventos | — | **Triggers de S3** (generar el PDF al llegar el XML firmado) |
+| Monitoreo | Logs de contenedores | **CloudWatch**: métricas, alarmas y dashboards |
+
 ## Integrantes
-_Se completa en la Fase 7._
+| Integrante | Rol | GitHub |
+|---|---|---|
+| Julio Julca | Arquitecto cloud y coordinador | [@ProgAlphaX](https://github.com/ProgAlphaX) |
+| | Pruebas de la API (Postman) | [@cristofer-s-dn](https://github.com/cristofer-s-dn) |
