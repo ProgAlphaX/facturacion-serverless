@@ -203,5 +203,6 @@ La lógica ya está separada en pasos independientes (`api/src/servicios/emitir-
 ## Integrantes
 | Integrante | Rol | GitHub |
 |---|---|---|
-| Julio Julca | Arquitecto cloud y coordinador | [@ProgAlphaX](https://github.com/ProgAlphaX) |
-| | Pruebas de la API (Postman) | [@cristofer-s-dn](https://github.com/cristofer-s-dn) |
+| Julio César Julca Gonzales | Arquitecto cloud | [@ProgAlphaX](https://github.com/ProgAlphaX) |
+| Sergio Cristofer Davila Naves | Pruebas de la API (Postman) | [@cristofer-s-dn](https://github.com/cristofer-s-dn) |
+| Romina Ariadna Romero Rivas | Extensiones recomendadas de VS Code | [@Ariadna019](https://github.com/Ariadna019) |
