@@ -1,0 +1,25 @@
+{
+  "tipo": "03",
+  "serie": "B001",
+  "numero": 2,
+  "fechaEmision": "2026-10-16",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDoc": "0",
+    "numDoc": "-",
+    "nombre": "CLIENTES VARIOS"
+  },
+  "items": [
+    {
+      "descripcion": "Monitor 27 pulgadas",
+      "unidad": "NIU",
+      "cantidad": 1,
+      "valorUnitario": 800
+    }
+  ],
+  "totales": {
+    "valorVenta": 800,
+    "igv": 144,
+    "total": 944
+  }
+}

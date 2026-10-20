@@ -1,0 +1,56 @@
+#!/bin/bash
+set -euxo pipefail
+exec > >(tee /var/log/facturacion-init.log) 2>&1
+
+dnf install -y docker git
+systemctl enable --now docker
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+# Compose v5 necesita buildx >= 0.17 para construir imágenes y Amazon Linux no lo incluye
+curl -fsSL "https://github.com/docker/buildx/releases/download/${buildx_version}/buildx-${buildx_version}.linux-amd64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+# t3.micro tiene 1 GB de RAM: el swap evita que el build de las imágenes se quede sin memoria
+if [ ! -f /swapfile ]; then
+  dd if=/dev/zero of=/swapfile bs=1M count=1024
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+git clone --depth 1 --branch ${repo_branch} ${repo_url} /opt/facturacion
+cd /opt/facturacion
+
+mkdir -p api/certs
+aws ssm get-parameter --region ${region} --name ${param_certificado} \
+  --query Parameter.Value --output text > api/certs/certificado.pem
+aws ssm get-parameter --region ${region} --name ${param_llave} --with-decryption \
+  --query Parameter.Value --output text > api/certs/llave-privada.pem
+# El contenedor corre como el usuario node (uid 1000)
+chown -R 1000:1000 api/certs
+chmod 500 api/certs
+chmod 400 api/certs/*.pem
+
+# Sin llaves de AWS ni endpoints: la API usa el rol de la instancia y los servicios reales
+cat > .env <<'ENV'
+NODE_ENV=production
+PORT=3000
+AWS_REGION=${region}
+DYNAMODB_TABLE=${tabla}
+S3_BUCKET=${bucket}
+SUNAT_URL=http://sunat-mock:4000/billService
+SUNAT_USUARIO=${sunat_usuario}
+SUNAT_CLAVE=${sunat_clave}
+EMISOR_RUC=${emisor_ruc}
+EMISOR_RAZON_SOCIAL=${emisor_razon_social}
+CERT_PATH=./certs/certificado.pem
+CERT_KEY_PATH=./certs/llave-privada.pem
+ENV
+chmod 600 .env
+
+docker compose -f docker-compose.aws.yml up -d --build

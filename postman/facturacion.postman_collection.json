@@ -1,0 +1,268 @@
+{
+  "info": {
+    "name": "Facturación Electrónica – Grupo 4",
+    "description": "Pruebas de la API de emisión de comprobantes (reglas SUNAT, firma, SOAP, CDR y PDF). Ejecutar con el Runner en orden. Requiere `docker compose up -d`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "rucEmisor", "value": "20000000001" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Fecha de hoy en Perú (UTC-5): la regla R04 no acepta fechas futuras ni de más de 3 días",
+          "const lima = new Date(Date.now() - 5 * 60 * 60 * 1000);",
+          "pm.collectionVariables.set('fechaHoy', lima.toISOString().slice(0, 10));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 – Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 200 y status ok', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().status).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 – Emitir factura válida (ACEPTADO)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Número aleatorio para poder ejecutar la colección varias veces sin chocar con R12",
+              "const numero = Math.floor(Math.random() * 90000000) + 1000;",
+              "pm.collectionVariables.set('numeroFactura', numero);",
+              "pm.collectionVariables.set('idFactura', `${pm.collectionVariables.get('rucEmisor')}-01-F001-${String(numero).padStart(8, '0')}`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test('responde 201', () => pm.response.to.have.status(201));",
+              "pm.test('SUNAT la acepta (CDR 0)', () => {",
+              "  pm.expect(r.estado).to.eql('ACEPTADO');",
+              "  pm.expect(r.cdr.codigo).to.eql('0');",
+              "});",
+              "pm.test('genera XML firmado, CDR y PDF', () => {",
+              "  pm.expect(r.archivos).to.have.all.keys('xml', 'cdr', 'pdf');",
+              "  pm.expect(r.hash).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/comprobantes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tipo\": \"01\",\n  \"serie\": \"F001\",\n  \"numero\": {{numeroFactura}},\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"6\", \"numDoc\": \"20100070970\", \"nombre\": \"CLIENTE DEMO S.A.\" },\n  \"items\": [\n    { \"descripcion\": \"Servicio de consultoría\", \"unidad\": \"ZZ\", \"cantidad\": 2, \"valorUnitario\": 100 },\n    { \"descripcion\": \"Soporte técnico mensual\", \"unidad\": \"ZZ\", \"cantidad\": 1, \"valorUnitario\": 50 }\n  ],\n  \"totales\": { \"valorVenta\": 250, \"igv\": 45, \"total\": 295 }\n}"
+        }
+      }
+    },
+    {
+      "name": "03 – Emitir boleta válida (ACEPTADO)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('numeroBoleta', Math.floor(Math.random() * 90000000) + 1000);"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 201 y ACEPTADO', () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().estado).to.eql('ACEPTADO');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/comprobantes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tipo\": \"03\",\n  \"serie\": \"B001\",\n  \"numero\": {{numeroBoleta}},\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"1\", \"numDoc\": \"12345678\", \"nombre\": \"JUAN PÉREZ QUISPE\" },\n  \"items\": [\n    { \"descripcion\": \"Mouse inalámbrico\", \"unidad\": \"NIU\", \"cantidad\": 3, \"valorUnitario\": 50 }\n  ],\n  \"totales\": { \"valorVenta\": 150, \"igv\": 27, \"total\": 177 }\n}"
+        }
+      }
+    },
+    {
+      "name": "04 – Factura a RUC inactivo (RECHAZADO por SUNAT)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('numeroRechazo', Math.floor(Math.random() * 90000000) + 1000);"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test('responde 201 con estado RECHAZADO (CDR 2017)', () => {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(r.estado).to.eql('RECHAZADO');",
+              "  pm.expect(r.cdr.codigo).to.eql('2017');",
+              "});",
+              "pm.test('no genera PDF', () => pm.expect(r.archivos).to.not.have.property('pdf'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/comprobantes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tipo\": \"01\",\n  \"serie\": \"F001\",\n  \"numero\": {{numeroRechazo}},\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"6\", \"numDoc\": \"20123456786\", \"nombre\": \"EMPRESA DADA DE BAJA S.A.C.\" },\n  \"items\": [\n    { \"descripcion\": \"Servicio de consultoría\", \"unidad\": \"ZZ\", \"cantidad\": 1, \"valorUnitario\": 100 }\n  ],\n  \"totales\": { \"valorVenta\": 100, \"igv\": 18, \"total\": 118 }\n}"
+        }
+      }
+    },
+    {
+      "name": "05 – IGV incorrecto (400 – R10)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 400 con la regla R10', () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().errores.map((e) => e.regla)).to.include('R10');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/comprobantes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tipo\": \"01\",\n  \"serie\": \"F001\",\n  \"numero\": 3,\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"6\", \"numDoc\": \"20100070970\", \"nombre\": \"CLIENTE DEMO S.A.\" },\n  \"items\": [\n    { \"descripcion\": \"Servicio de consultoría\", \"unidad\": \"ZZ\", \"cantidad\": 2, \"valorUnitario\": 100 },\n    { \"descripcion\": \"Soporte técnico mensual\", \"unidad\": \"ZZ\", \"cantidad\": 1, \"valorUnitario\": 50 }\n  ],\n  \"totales\": { \"valorVenta\": 250, \"igv\": 30, \"total\": 280 }\n}"
+        }
+      }
+    },
+    {
+      "name": "06 – Boleta mayor a S/ 700 sin DNI (400 – R08)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 400 con la regla R08', () => {",
+              "  pm.response.to.have.status(400);",
+              "  pm.expect(pm.response.json().errores.map((e) => e.regla)).to.include('R08');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/comprobantes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tipo\": \"03\",\n  \"serie\": \"B001\",\n  \"numero\": 2,\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"0\", \"numDoc\": \"-\", \"nombre\": \"CLIENTES VARIOS\" },\n  \"items\": [\n    { \"descripcion\": \"Monitor 27 pulgadas\", \"unidad\": \"NIU\", \"cantidad\": 1, \"valorUnitario\": 800 }\n  ],\n  \"totales\": { \"valorVenta\": 800, \"igv\": 144, \"total\": 944 }\n}"
+        }
+      }
+    },
+    {
+      "name": "07 – Factura repetida (409 – R12)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 409 con la regla R12', () => {",
+              "  pm.response.to.have.status(409);",
+              "  pm.expect(pm.response.json().regla).to.eql('R12');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/comprobantes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tipo\": \"01\",\n  \"serie\": \"F001\",\n  \"numero\": {{numeroFactura}},\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"6\", \"numDoc\": \"20100070970\", \"nombre\": \"CLIENTE DEMO S.A.\" },\n  \"items\": [\n    { \"descripcion\": \"Servicio de consultoría\", \"unidad\": \"ZZ\", \"cantidad\": 2, \"valorUnitario\": 100 },\n    { \"descripcion\": \"Soporte técnico mensual\", \"unidad\": \"ZZ\", \"cantidad\": 1, \"valorUnitario\": 50 }\n  ],\n  \"totales\": { \"valorVenta\": 250, \"igv\": 45, \"total\": 295 }\n}"
+        }
+      }
+    },
+    {
+      "name": "08 – Consultar factura emitida",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test('responde 200 con el comprobante ACEPTADO y sus archivos', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(r.estado).to.eql('ACEPTADO');",
+              "  pm.expect(r.archivos).to.have.property('pdf');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/comprobantes/{{idFactura}}" }
+    },
+    {
+      "name": "09 – Consultar comprobante inexistente (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('responde 404', () => pm.response.to.have.status(404));"]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/comprobantes/{{rucEmisor}}-01-F999-00000001" }
+    }
+  ]
+}

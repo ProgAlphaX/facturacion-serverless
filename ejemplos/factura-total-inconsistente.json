@@ -1,0 +1,26 @@
+
+{
+  "tipo": "01",
+  "serie": "F001",
+  "numero": 8,
+  "fechaEmision": "2026-10-16",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDoc": "6",
+    "numDoc": "20100070970",
+    "nombre": "CLIENTE DEMO S.A."
+  },
+  "items": [
+    {
+      "descripcion": "Servicio de consultoria",
+      "unidad": "ZZ",
+      "cantidad": 2,
+      "valorUnitario": 100
+    }
+  ],
+  "totales": {
+    "valorVenta": 200,
+    "igv": 36,
+    "total": 250
+  }
+}

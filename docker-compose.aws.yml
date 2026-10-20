@@ -1,0 +1,23 @@
+# Versión para la EC2: sin emuladores, usa la DynamoDB y el S3 reales con el rol IAM de la instancia.
+# El .env y el certificado los genera el user_data de Terraform (Fase 5).
+name: facturacion-serverless
+
+services:
+  api:
+    build: ./api
+    image: facturacion-api:aws
+    env_file: .env
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./api/certs:/app/certs:ro
+    depends_on:
+      sunat-mock:
+        condition: service_healthy
+    restart: always
+
+  sunat-mock:
+    build: ./sunat-mock
+    image: sunat-mock:aws
+    env_file: .env
+    restart: always

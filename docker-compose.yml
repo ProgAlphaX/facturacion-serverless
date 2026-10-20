@@ -1,0 +1,71 @@
+name: facturacion-serverless
+
+services:
+  api:
+    build: ./api
+    image: facturacion-api:local
+    env_file: .env
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./api/certs:/app/certs:ro
+    depends_on:
+      sunat-mock:
+        condition: service_healthy
+      s3-local:
+        condition: service_healthy
+      dynamodb-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  sunat-mock:
+    build: ./sunat-mock
+    image: sunat-mock:local
+    env_file: .env
+    ports:
+      - "127.0.0.1:4000:4000"
+    restart: unless-stopped
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:3.3.2
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    # root solo en el emulador local: el volumen nuevo se crea con dueño root
+    user: root
+    volumes:
+      - dynamodb-data:/home/dynamodblocal/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  dynamodb-init:
+    build: ./api
+    image: facturacion-api:local
+    command: ["node", "scripts/crear-tabla-local.js"]
+    env_file: .env
+    depends_on:
+      - dynamodb-local
+    restart: "no"
+
+  s3-local:
+    image: adobe/s3mock:5.2.3
+    # root solo en el emulador local: el volumen nuevo se crea con dueño root
+    user: root
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${S3_BUCKET}
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /data
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    volumes:
+      - s3-data:/data
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  dynamodb-data:
+  s3-data:

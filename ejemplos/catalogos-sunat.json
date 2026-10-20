@@ -1,0 +1,54 @@
+{
+  "descripcion": "Catálogos SUNAT (Anexo 8 de la Resolución de Superintendencia N.° 097-2012/SUNAT y modificatorias) que usa la API de facturación",
+  "catalogo01_tipoComprobante": {
+    "01": "Factura",
+    "03": "Boleta de venta",
+    "07": "Nota de crédito",
+    "08": "Nota de débito"
+  },
+  "catalogo05_tributos": {
+    "1000": { "nombre": "IGV", "tipo": "VAT", "tasa": 0.18 },
+    "9995": { "nombre": "EXP", "tipo": "FRE", "descripcion": "Exportación" },
+    "9997": { "nombre": "EXO", "tipo": "VAT", "descripcion": "Exonerado" },
+    "9998": { "nombre": "INA", "tipo": "FRE", "descripcion": "Inafecto" }
+  },
+  "catalogo06_tipoDocumentoIdentidad": {
+    "0": "Documento tributario no domiciliado sin RUC",
+    "1": "DNI",
+    "4": "Carnet de extranjería",
+    "6": "RUC",
+    "7": "Pasaporte"
+  },
+  "catalogo07_afectacionIgv": {
+    "10": "Gravado - Operación onerosa",
+    "20": "Exonerado - Operación onerosa",
+    "30": "Inafecto - Operación onerosa",
+    "40": "Exportación de bienes o servicios"
+  },
+  "catalogo16_tipoPrecio": {
+    "01": "Precio unitario (incluye el IGV)",
+    "02": "Valor referencial unitario en operaciones no onerosas"
+  },
+  "catalogo51_tipoOperacion": {
+    "0101": "Venta interna",
+    "0200": "Exportación de bienes"
+  },
+  "unidadesDeMedida": {
+    "NIU": "Unidad (bienes)",
+    "ZZ": "Unidad (servicios)"
+  },
+  "codigosCdr": {
+    "0": "Aceptado",
+    "0100-1999": "Excepción: el comprobante no fue procesado y puede reenviarse",
+    "2000-3999": "Rechazado",
+    "4000+": "Aceptado con observaciones"
+  },
+  "usadosPorLaApi": {
+    "tipoComprobante": ["01", "03"],
+    "tributo": "1000",
+    "tipoDocumentoIdentidad": ["1", "6"],
+    "afectacionIgv": "10",
+    "tipoPrecio": "01",
+    "tipoOperacion": "0101"
+  }
+}
