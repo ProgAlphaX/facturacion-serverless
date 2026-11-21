@@ -1,0 +1,39 @@
+service: fe-serverless
+frameworkVersion: '3'
+
+plugins:
+  - serverless-iam-roles-per-function
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  logRetentionInDays: 7
+  tags:
+    Project: facturacion-serverless
+    Env: ${self:provider.stage}
+    ManagedBy: serverless
+  # Los recursos de datos los crea Terraform; aquí solo se reciben sus nombres.
+  environment:
+    EMISOR_RUC: ${param:emisorRuc, '20000000001'}
+    EMISOR_RAZON_SOCIAL: ${param:emisorRazonSocial, 'EMPRESA DEMO S.A.C.'}
+    DYNAMODB_TABLE: fe-${self:provider.stage}-comprobantes
+    S3_BUCKET: fe-${self:provider.stage}-comprobantes-${aws:accountId}
+    SSM_CERTIFICADO: /facturacion/${self:provider.stage}/certificado
+    SSM_LLAVE_PRIVADA: /facturacion/${self:provider.stage}/llave-privada
+
+package:
+  individually: true
+  patterns:
+    - '!**'
+
+functions:
+  hola:
+    handler: src/hola.handler
+    description: Función de prueba de la Fase 1 (se elimina al terminar la Fase 3)
+    package:
+      patterns:
+        - src/hola.js
