@@ -9,7 +9,12 @@
     "quitar": "serverless remove"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "serverless": "3.40.0",
+    "serverless-esbuild": "^1.57.4",
     "serverless-iam-roles-per-function": "3.2.0"
+  },
+  "dependencies": {
+    "serverless-http": "^4.0.0"
   }
 }
