@@ -2,6 +2,7 @@ service: fe-serverless
 frameworkVersion: '3'
 
 plugins:
+  - serverless-esbuild
   - serverless-iam-roles-per-function
 
 provider:
@@ -27,13 +28,43 @@ provider:
 
 package:
   individually: true
-  patterns:
-    - '!**'
+
+# esbuild une cada handler con el código que usa (incluso el de ../api y ../sunat-mock) en un solo archivo.
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: false
+    platform: node
+    target: node22
+    exclude:
+      - '@aws-sdk/*'
 
 functions:
   hola:
     handler: src/hola.handler
     description: Función de prueba de la Fase 1 (se elimina al terminar la Fase 3)
-    package:
-      patterns:
-        - src/hola.js
+
+  sunat-mock:
+    handler: src/sunat-mock.handler
+    description: SUNAT simulada (SOAP sendBill) para las pruebas
+    memorySize: 512
+    timeout: 20
+    # URL pública de la función; el acceso lo controlan las credenciales SOL, igual que en SUNAT
+    url: true
+    environment:
+      SUNAT_USUARIO: ${param:sunatUsuario, 'MODDATOS'}
+      SUNAT_CLAVE: ${param:sunatClave, 'moddatos'}
+      RUCS_INACTIVOS: ${param:rucsInactivos, '20123456786'}
+
+resources:
+  Resources:
+    # Desde 2025 una URL de función pública necesita también este permiso; Serverless v3 solo crea InvokeFunctionUrl.
+    SunatMockInvokeFunctionPermission:
+      Type: AWS::Lambda::Permission
+      DependsOn: SunatDashmockLambdaFunction
+      Properties:
+        FunctionName: !GetAtt SunatDashmockLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: '*'
+        InvokedViaFunctionUrl: true
