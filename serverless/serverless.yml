@@ -4,6 +4,7 @@ frameworkVersion: '3'
 plugins:
   - serverless-esbuild
   - serverless-iam-roles-per-function
+  - ./plugins/version-api.js
 
 provider:
   name: aws
@@ -92,6 +93,14 @@ functions:
           - dynamodb:PutItem
           - dynamodb:UpdateItem
           - dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  consultar-comprobante:
+    handler: src/consultar-comprobante.handler
+    description: Consulta un comprobante por su id (GET /comprobantes/{id})
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:GetItem
         Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
 
   sunat-mock:
@@ -362,6 +371,220 @@ resources:
                 id.$: $.reserva.id
               End: true
 
+    # ── Fase 5: API pública protegida (Cognito JWT + API key con límite de peticiones) ──
+
+    GrupoUsuarios:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: fe-${self:provider.stage}-usuarios
+        # Sin registro libre: los usuarios los crea el administrador
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: true
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 12
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+
+    ClienteApi:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: fe-${self:provider.stage}-cliente-api
+        UserPoolId: !Ref GrupoUsuarios
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+
+    ApiFacturacion:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: fe-${self:provider.stage}-facturacion
+        Description: Emisión y consulta de comprobantes electrónicos
+        EndpointConfiguration:
+          Types: [REGIONAL]
+
+    AutorizadorJwt:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: cognito-jwt
+        Type: COGNITO_USER_POOLS
+        RestApiId: !Ref ApiFacturacion
+        IdentitySource: method.request.header.Authorization
+        ProviderARNs:
+          - !GetAtt GrupoUsuarios.Arn
+
+    RecursoComprobantes:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !GetAtt ApiFacturacion.RootResourceId
+        PathPart: comprobantes
+
+    RecursoComprobanteId:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !Ref RecursoComprobantes
+        PathPart: '{id}'
+
+    ValidadorCuerpo:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        Name: exige-cuerpo-json
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
+
+    ModeloComprobante:
+      Type: AWS::ApiGateway::Model
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        Name: Comprobante
+        ContentType: application/json
+        Schema:
+          $schema: http://json-schema.org/draft-04/schema#
+          type: object
+
+    RolApiHaciaFlujo:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: apigateway.amazonaws.com }
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: iniciar-flujo-de-emision
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: states:StartSyncExecution
+                  Resource: !Ref FlujoEmision
+
+    # POST /comprobantes → inicia la máquina de estados y traduce su resultado a un código HTTP
+    MetodoEmitir:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoComprobantes
+        HttpMethod: POST
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        RequestValidatorId: !Ref ValidadorCuerpo
+        RequestModels:
+          application/json: !Ref ModeloComprobante
+        Integration:
+          Type: AWS
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:states:action/StartSyncExecution'
+          Credentials: !GetAtt RolApiHaciaFlujo.Arn
+          PassthroughBehavior: NEVER
+          RequestParameters:
+            integration.request.header.Content-Type: "'application/x-amz-json-1.0'"
+          RequestTemplates:
+            application/json: !Join
+              - ''
+              - - "#set($cuerpo = $util.escapeJavaScript($input.json('$')).replaceAll(\"\\\\'\", \"'\"))\n"
+                - '{"input": "$cuerpo", "stateMachineArn": "'
+                - !Ref FlujoEmision
+                - '"}'
+          IntegrationResponses:
+            - StatusCode: '200'
+              ResponseTemplates:
+                application/json: |
+                  #if($input.path('$.status') == "SUCCEEDED")
+                  #set($salida = $util.parseJson($input.path('$.output')))
+                  #set($context.responseOverride.status = $salida.http)
+                  $input.path('$.output')
+                  #else
+                  #set($context.responseOverride.status = 502)
+                  {"estado": "ERROR_FLUJO", "mensaje": "El flujo de emisión no terminó correctamente"}
+                  #end
+        MethodResponses:
+          - StatusCode: '200'
+
+    # GET /comprobantes/{id} → Lambda que lee DynamoDB
+    MetodoConsultar:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoComprobanteId
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConsultarDashcomprobanteLambdaFunction.Arn}/invocations'
+
+    PermisoApiConsultar:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref ConsultarDashcomprobanteLambdaFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes/*'
+
+    # El plugin plugins/version-api.js le agrega un sufijo según el contenido de la API, para que API Gateway publique cada cambio
+    DespliegueApi:
+      Type: AWS::ApiGateway::Deployment
+      DependsOn: [MetodoEmitir, MetodoConsultar]
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+
+    EtapaApi:
+      Type: AWS::ApiGateway::Stage
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        StageName: ${self:provider.stage}
+        DeploymentId: !Ref DespliegueApi
+
+    # Límite pequeño a propósito para que el 429 se vea en la demostración
+    PlanDeUso:
+      Type: AWS::ApiGateway::UsagePlan
+      DependsOn: EtapaApi
+      Properties:
+        UsagePlanName: fe-${self:provider.stage}-plan-basico
+        Description: 5 peticiones por segundo, ráfaga de 10 y 1000 por día
+        ApiStages:
+          - ApiId: !Ref ApiFacturacion
+            Stage: ${self:provider.stage}
+        Throttle:
+          RateLimit: 5
+          BurstLimit: 10
+        Quota:
+          Limit: 1000
+          Period: DAY
+
+    LlaveApi:
+      Type: AWS::ApiGateway::ApiKey
+      DependsOn: EtapaApi
+      Properties:
+        Name: fe-${self:provider.stage}-llave-cliente
+        Enabled: true
+
+    LlaveEnPlan:
+      Type: AWS::ApiGateway::UsagePlanKey
+      Properties:
+        KeyId: !Ref LlaveApi
+        KeyType: API_KEY
+        UsagePlanId: !Ref PlanDeUso
+
   Outputs:
     FlujoEmisionArn:
       Value: !Ref FlujoEmision
+    UrlApi:
+      Value: !Join ['', ['https://', !Ref ApiFacturacion, '.execute-api.', !Ref 'AWS::Region', '.amazonaws.com/', '${self:provider.stage}']]
+    GrupoUsuariosId:
+      Value: !Ref GrupoUsuarios
+    ClienteApiId:
+      Value: !Ref ClienteApi
+    LlaveApiId:
+      Value: !Ref LlaveApi
