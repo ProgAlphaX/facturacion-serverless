@@ -37,7 +37,10 @@ function crearRepositorio({ tabla, cliente }) {
   }
 
   async function actualizar(id, campos) {
-    const datos = { ...campos, actualizadoEn: new Date().toISOString() };
+    // Los campos undefined (p. ej. hash o archivos si el flujo falló antes) se omiten: DynamoDB no los acepta en el SET
+    const datos = Object.fromEntries(
+      Object.entries({ ...campos, actualizadoEn: new Date().toISOString() }).filter(([, v]) => v !== undefined),
+    );
     const nombres = Object.keys(datos);
     await cliente.send(new UpdateCommand({
       TableName: tabla,
