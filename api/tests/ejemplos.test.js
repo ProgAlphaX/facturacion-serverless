@@ -15,7 +15,7 @@ function reglasIncumplidas(nombre) {
 }
 
 describe('Ejemplos de comprobantes', () => {
-  test.each(['factura-valida', 'boleta-valida'])('%s no tiene errores', (nombre) => {
+  test.each(['factura-valida', 'boleta-valida', 'factura-dolares-valida'])('%s no tiene errores', (nombre) => {
     expect(reglasIncumplidas(nombre)).toEqual([]);
   });
 
@@ -24,6 +24,9 @@ describe('Ejemplos de comprobantes', () => {
     ['factura-ruc-invalido', 'R07'],
     ['factura-igv-incorrecto', 'R10'],
     ['factura-serie-incorrecta', 'R02'],
+    ['factura-fecha-futura', 'R04'],
+    ['factura-total-inconsistente', 'R11'],
+    ['factura-cantidad-invalida', 'R09'],
   ])('%s incumple %s', (nombre, regla) => {
     expect(reglasIncumplidas(nombre)).toEqual([regla]);
   });
