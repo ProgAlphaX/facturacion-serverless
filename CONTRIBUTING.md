@@ -51,3 +51,9 @@ Más detalles en el [README](README.md).
 2. Revisar `git status`: solo deben aparecer los archivos que cambiaste.
 3. `git add <archivo>` (no `git add .` si no estás seguro de qué incluye).
 4. `git commit -m "tipo: mensaje"` y `git push`.
+
+## Funciones Lambda (APF3)
+
+- Los handlers están en `api/src/lambdas/`. Cada uno exporta una función `handler` que recibe un `event` y devuelve un resultado.
+- Un handler **no tiene lógica propia**: llama al código que ya existe en `api/src/`.
+- Cada handler tiene su prueba en `api/tests/`. Antes de subir: `cd api` y `npm test` (todo en verde).
