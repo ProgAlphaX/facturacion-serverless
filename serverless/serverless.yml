@@ -39,11 +39,60 @@ custom:
     target: node22
     exclude:
       - '@aws-sdk/*'
+    # pdfkit carga sus fuentes con un require dinámico que esbuild no puede unir; se empaqueta aparte.
+    external:
+      - pdfkit
 
 functions:
-  hola:
-    handler: src/hola.handler
-    description: Función de prueba de la Fase 1 (se elimina al terminar la Fase 3)
+  validar:
+    handler: src/validar.handler
+    description: Valida el comprobante (esquema y reglas de negocio SUNAT)
+
+  generar-xml:
+    handler: src/generar-xml.handler
+    description: Genera el XML UBL 2.1 del comprobante
+
+  generar-pdf:
+    handler: src/generar-pdf.handler
+    description: Genera la representación impresa (PDF con QR)
+    memorySize: 512
+
+  firmar:
+    handler: src/firmar.handler
+    description: Firma el XML (XMLDSig) con el certificado de SSM y lo guarda en S3
+    iamRoleStatements:
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/firmados/*
+      - Effect: Allow
+        Action: ssm:GetParameter
+        Resource:
+          - arn:aws:ssm:${aws:region}:${aws:accountId}:parameter/facturacion/${self:provider.stage}/certificado
+          - arn:aws:ssm:${aws:region}:${aws:accountId}:parameter/facturacion/${self:provider.stage}/llave-privada
+
+  enviar-sunat:
+    handler: src/enviar-sunat.handler
+    description: Envía el XML firmado a SUNAT (SOAP sendBill) y guarda el CDR en S3
+    timeout: 30
+    environment:
+      SUNAT_URL: !Join ['', [!GetAtt SunatDashmockLambdaFunctionUrl.FunctionUrl, 'billService']]
+      SUNAT_USUARIO: ${param:sunatUsuario, 'MODDATOS'}
+      SUNAT_CLAVE: ${param:sunatClave, 'moddatos'}
+    iamRoleStatements:
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/cdr/*
+
+  guardar-resultado:
+    handler: src/guardar-resultado.handler
+    description: Reserva el comprobante (evita duplicados) y guarda su estado en DynamoDB
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
 
   sunat-mock:
     handler: src/sunat-mock.handler

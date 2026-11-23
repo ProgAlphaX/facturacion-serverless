@@ -15,6 +15,7 @@
     "serverless-iam-roles-per-function": "3.2.0"
   },
   "dependencies": {
+    "pdfkit": "^0.20.2",
     "serverless-http": "^4.0.0"
   }
 }
