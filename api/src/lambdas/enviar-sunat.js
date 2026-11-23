@@ -14,7 +14,7 @@ function crearHandler({ clienteSunat, almacen }) {
       // Un rechazo también puede llegar como falla SOAP con código 2000–3999
       const esRechazo = err instanceof ErrorSunat && err.codigo && estadoSegunCodigo(err.codigo) === ESTADOS.RECHAZADO;
       if (!esRechazo) throw err;
-      return { id, cdr: { codigo: err.codigo, descripcion: err.message, observaciones: [], estado: ESTADOS.RECHAZADO } };
+      return { id, cdr: { codigo: err.codigo, descripcion: err.message, observaciones: [], estado: ESTADOS.RECHAZADO }, cdrKey: null };
     }
   };
 }

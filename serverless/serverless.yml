@@ -117,3 +117,251 @@ resources:
         Action: lambda:InvokeFunction
         Principal: '*'
         InvokedViaFunctionUrl: true
+
+    # Orquestación del flujo de emisión. Express + síncrona: quien la invoca recibe el resultado final.
+    GrupoLogsFlujo:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/vendedlogs/states/fe-${self:provider.stage}-emitir-comprobante
+        RetentionInDays: 7
+
+    RolFlujoEmision:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: states.amazonaws.com }
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: invocar-lambdas-del-flujo
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: lambda:InvokeFunction
+                  Resource:
+                    - !GetAtt ValidarLambdaFunction.Arn
+                    - !GetAtt GenerarDashxmlLambdaFunction.Arn
+                    - !GetAtt FirmarLambdaFunction.Arn
+                    - !GetAtt EnviarDashsunatLambdaFunction.Arn
+                    - !GetAtt GuardarDashresultadoLambdaFunction.Arn
+          - PolicyName: escribir-logs-del-flujo
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogDelivery
+                    - logs:GetLogDelivery
+                    - logs:UpdateLogDelivery
+                    - logs:DeleteLogDelivery
+                    - logs:ListLogDeliveries
+                    - logs:PutResourcePolicy
+                    - logs:DescribeResourcePolicies
+                    - logs:DescribeLogGroups
+                  Resource: '*'
+
+    FlujoEmision:
+      Type: AWS::StepFunctions::StateMachine
+      Properties:
+        StateMachineName: fe-${self:provider.stage}-emitir-comprobante
+        StateMachineType: EXPRESS
+        RoleArn: !GetAtt RolFlujoEmision.Arn
+        LoggingConfiguration:
+          Level: ALL
+          IncludeExecutionData: true
+          Destinations:
+            - CloudWatchLogsLogGroup:
+                LogGroupArn: !GetAtt GrupoLogsFlujo.Arn
+        Tags:
+          - { Key: Project, Value: facturacion-serverless }
+          - { Key: Env, Value: '${self:provider.stage}' }
+        Definition:
+          Comment: Emisión de un comprobante electrónico (validar, reservar, XML, firma, SUNAT, resultado)
+          StartAt: Entrada
+          States:
+            # Deja la factura recibida en $.evento; cada paso agrega su resultado al lado
+            Entrada:
+              Type: Pass
+              Parameters:
+                evento.$: $
+              Next: Validar
+
+            Validar:
+              Type: Task
+              Resource: !GetAtt ValidarLambdaFunction.Arn
+              InputPath: $.evento
+              ResultPath: $.validacion
+              Next: EsValido
+
+            EsValido:
+              Type: Choice
+              Choices:
+                - Variable: $.validacion.valido
+                  BooleanEquals: true
+                  Next: Reservar
+              Default: RespuestaInvalido
+
+            Reservar:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: RESERVAR
+                datos.$: $.validacion.datos
+              ResultPath: $.reserva
+              Next: EsNuevo
+
+            # Regla R12: un comprobante ya reservado no se procesa de nuevo
+            EsNuevo:
+              Type: Choice
+              Choices:
+                - Variable: $.reserva.reservado
+                  BooleanEquals: true
+                  Next: GenerarXml
+              Default: RespuestaDuplicado
+
+            GenerarXml:
+              Type: Task
+              Resource: !GetAtt GenerarDashxmlLambdaFunction.Arn
+              Parameters:
+                datos.$: $.validacion.datos
+              ResultPath: $.xml
+              Catch:
+                - { ErrorEquals: ['States.ALL'], ResultPath: $.error, Next: GuardarError }
+              Next: Firmar
+
+            Firmar:
+              Type: Task
+              Resource: !GetAtt FirmarLambdaFunction.Arn
+              Parameters:
+                id.$: $.reserva.id
+                xml.$: $.xml.xml
+              ResultPath: $.firma
+              Catch:
+                - { ErrorEquals: ['States.ALL'], ResultPath: $.error, Next: GuardarError }
+              Next: EnviarSunat
+
+            # Solo este paso reintenta: puede fallar por red o porque SUNAT no responde
+            EnviarSunat:
+              Type: Task
+              Resource: !GetAtt EnviarDashsunatLambdaFunction.Arn
+              Parameters:
+                id.$: $.reserva.id
+                xmlFirmado.$: $.firma.xmlFirmado
+              ResultPath: $.sunat
+              Retry:
+                - ErrorEquals: [ErrorSunat, Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.TooManyRequestsException, States.Timeout]
+                  IntervalSeconds: 2
+                  MaxAttempts: 3
+                  BackoffRate: 2
+              Catch:
+                - { ErrorEquals: ['States.ALL'], ResultPath: $.error, Next: GuardarError }
+              Next: ResultadoSunat
+
+            ResultadoSunat:
+              Type: Choice
+              Choices:
+                - Variable: $.sunat.cdr.estado
+                  StringEquals: ACEPTADO
+                  Next: GuardarAceptado
+                - Variable: $.sunat.cdr.estado
+                  StringEquals: RECHAZADO
+                  Next: GuardarRechazado
+              Default: CodigoSunatInesperado
+
+            CodigoSunatInesperado:
+              Type: Pass
+              Result:
+                Error: CodigoSunatInesperado
+              ResultPath: $.error
+              Next: GuardarError
+
+            GuardarAceptado:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: FINALIZAR
+                id.$: $.reserva.id
+                cdr.$: $.sunat.cdr
+                hash.$: $.firma.hash
+                archivos:
+                  xml.$: $.firma.xmlKey
+                  cdr.$: $.sunat.cdrKey
+              ResultPath: $.guardado
+              Next: RespuestaAceptado
+
+            GuardarRechazado:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: FINALIZAR
+                id.$: $.reserva.id
+                cdr.$: $.sunat.cdr
+                hash.$: $.firma.hash
+                archivos:
+                  xml.$: $.firma.xmlKey
+                  cdr.$: $.sunat.cdrKey
+              ResultPath: $.guardado
+              Next: RespuestaRechazado
+
+            # SUNAT no respondió tras los reintentos (o falló un paso interno): queda ERROR_ENVIO y se puede reenviar
+            GuardarError:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: ERROR
+                id.$: $.reserva.id
+                error.$: $.error.Error
+              ResultPath: $.guardado
+              Next: RespuestaError
+
+            RespuestaInvalido:
+              Type: Pass
+              Parameters:
+                http: 400
+                estado: INVALIDO
+                errores.$: $.validacion.errores
+              End: true
+
+            RespuestaDuplicado:
+              Type: Pass
+              Parameters:
+                http: 409
+                estado: DUPLICADO
+                id.$: $.reserva.id
+                regla: R12
+              End: true
+
+            RespuestaAceptado:
+              Type: Pass
+              Parameters:
+                http: 201
+                estado: ACEPTADO
+                id.$: $.reserva.id
+                hash.$: $.firma.hash
+                cdr.$: $.sunat.cdr
+              End: true
+
+            RespuestaRechazado:
+              Type: Pass
+              Parameters:
+                http: 201
+                estado: RECHAZADO
+                id.$: $.reserva.id
+                hash.$: $.firma.hash
+                cdr.$: $.sunat.cdr
+              End: true
+
+            RespuestaError:
+              Type: Pass
+              Parameters:
+                http: 502
+                estado: ERROR_ENVIO
+                id.$: $.reserva.id
+              End: true
+
+  Outputs:
+    FlujoEmisionArn:
+      Value: !Ref FlujoEmision

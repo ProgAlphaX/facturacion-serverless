@@ -36,6 +36,17 @@ const eventos = {
   },
 };
 
+// Entradas para ejecutar la máquina de estados (Fase 4). Cada una usa su propio número.
+const ejemplo = (nombre) => JSON.parse(fs.readFileSync(path.resolve(__dirname, `../../ejemplos/${nombre}.json`), 'utf8'));
+const conNumero = (f, n) => ({ ...f, numero: n, fechaEmision: factura.fechaEmision });
+const base = (Date.now() % 90000000) + 1000;
+eventos['flujo-aceptado.json'] = conNumero(factura, base);
+eventos['flujo-invalido.json'] = conNumero(ejemplo('factura-igv-incorrecto'), base + 1);
+eventos['flujo-rechazado.json'] = {
+  ...conNumero(factura, base + 2),
+  cliente: { ...factura.cliente, numDoc: '20123456786', nombre: 'CLIENTE RUC INACTIVO S.A.' },
+};
+
 const carpeta = path.resolve(__dirname, '../eventos');
 fs.mkdirSync(carpeta, { recursive: true });
 for (const [nombre, contenido] of Object.entries(eventos)) {

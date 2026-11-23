@@ -35,7 +35,7 @@ describe('Lambda enviar-sunat', () => {
     const { handler } = armar(respuestaSoapFalla('2335', 'El documento fue alterado'), 500);
     const r = await handler({ id: ID, xmlFirmado: '<Invoice/>' });
     expect(r.cdr).toMatchObject({ codigo: '2335', estado: 'RECHAZADO' });
-    expect(r.cdrKey).toBeUndefined();
+    expect(r.cdrKey).toBeNull();
   });
 
   test('una falla de acceso lanza ErrorSunat para que Step Functions la reintente', async () => {
