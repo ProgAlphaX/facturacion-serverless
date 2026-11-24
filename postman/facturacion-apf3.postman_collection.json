@@ -36,7 +36,7 @@
           "const lima = new Date(Date.now() - 5 * 60 * 60 * 1000);",
           "pm.collectionVariables.set('fechaHoy', lima.toISOString().slice(0, 10));",
           "",
-          "const nombre = pm.request.name;",
+          "const nombre = pm.info.requestName;",
           "if (!nombre.includes('Sin API key')) {",
           "  pm.request.headers.upsert({ key: 'x-api-key', value: pm.collectionVariables.get('apiKey') });",
           "}",
