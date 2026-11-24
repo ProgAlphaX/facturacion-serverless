@@ -33,18 +33,22 @@ flowchart LR
 | `scripts/`               | `encender.ps1` / `apagar.ps1` (NAT + EC2 bajo demanda) y `probar-api.sh` (pruebas de humo) |
 | `docker-compose.yml`     | Entorno local completo: API, SUNAT simulada, DynamoDB local y S3 local                     |
 | `docker-compose.aws.yml` | Versión para la EC2: API y SUNAT simulada con DynamoDB y S3 reales                         |
+| `serverless/`            | APF3: Lambdas, Step Functions, API Gateway, Cognito y CloudWatch (Serverless Framework)    |
 
 ## Estado del proyecto
 
-| Fase | Descripción                   | Estado |
-| ---- | ----------------------------- | ------ |
-| 1    | Base del repositorio          | ✅     |
-| 2    | API con reglas SUNAT          | ✅     |
-| 3    | SUNAT simulada (SOAP)         | ✅     |
-| 4    | Contenedores Docker           | ✅     |
-| 5    | Infraestructura con Terraform | ✅     |
-| 6    | Pruebas en AWS                | ✅     |
-| 7    | Cierre del avance APF2        | ✅     |
+| Fase     | Descripción                                          | Estado |
+| -------- | ---------------------------------------------------- | ------ |
+| APF2 1–7 | Repositorio, API, SUNAT simulada, Docker, Terraform y pruebas en AWS | ✅ |
+| APF3 1   | Base serverless (Serverless Framework + esbuild)     | ✅     |
+| APF3 2   | SUNAT simulada como Lambda con URL de función        | ✅     |
+| APF3 3   | Siete funciones Lambda del flujo, un rol IAM cada una | ✅    |
+| APF3 4   | Máquina de estados Step Functions Express            | ✅     |
+| APF3 5   | API Gateway + Cognito (JWT) + API key + límite       | ✅     |
+| APF3 6   | Trigger de S3 que genera el PDF                      | ✅     |
+| APF3 7   | Panel de CloudWatch y logs a 7 días                  | ✅     |
+| APF3 8   | Pruebas de integración (script y Postman)            | ✅     |
+| APF3 9–10 | Informe v3.0 y cierre (tag `v0.3-apf3`)             | ✅     |
 
 ## Requisitos
 
@@ -233,6 +237,26 @@ flowchart LR
 | Monitoreo    | Logs de contenedores   | CloudWatch                                   |
 
 Los handlers de las Lambdas están en `api/src/lambdas/` y sus pruebas en `api/tests/`.
+
+### Desplegar, probar y destruir el APF3
+
+Requisitos: AWS CLI con el perfil `fe-dev`, Node.js 22 o superior, PowerShell 7 y la capa permanente de Terraform ya creada (`terraform apply` en `infra/terraform/`).
+
+```powershell
+# 1. Desplegar (1 a 4 minutos). Muestra UrlApi, GrupoUsuariosId, ClienteApiId y LlaveApiId
+cd serverless
+npm ci
+npx serverless deploy
+
+# 2. Crear el usuario de prueba de Cognito (una sola vez; elija su propia contraseña de 12 o más caracteres)
+aws cognito-idp admin-create-user --user-pool-id <GrupoUsuariosId> --username tester --message-action SUPPRESS --profile fe-dev --region us-east-1
+aws cognito-idp admin-set-user-password --user-pool-id <GrupoUsuariosId> --username tester --password "<clave>" --permanent --profile fe-dev --region us-east-1
+
+# 3. Probar la API desplegada (11 casos; pide la contraseña, no se guarda)
+./scripts/probar-api.ps1
+```
+
+Para no generar costos al terminar: `npx serverless remove` en `serverless/` y después `terraform destroy` en `infra/terraform/`. El NAT Gateway y la EC2 del APF2 siguen apagados por defecto (`enable_nat` y `enable_ec2` en `false`). La API key y el JWT nunca se suben al repositorio: se obtienen con `aws apigateway get-api-key` y `aws cognito-idp initiate-auth`.
 
 ## Integrantes
 
