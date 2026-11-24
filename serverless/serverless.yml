@@ -601,6 +601,13 @@ resources:
         KeyType: API_KEY
         UsagePlanId: !Ref PlanDeUso
 
+    # Panel de CloudWatch: sin alarmas ni avisos por correo (decisión del proyecto); solo observación
+    PanelFacturacion:
+      Type: AWS::CloudWatch::Dashboard
+      Properties:
+        DashboardName: fe-${self:provider.stage}-facturacion
+        DashboardBody: ${file(./scripts/dashboard.js)}
+
   Outputs:
     FlujoEmisionArn:
       Value: !Ref FlujoEmision
