@@ -103,6 +103,30 @@ functions:
         Action: dynamodb:GetItem
         Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
 
+  pdf-automatico:
+    handler: src/pdf-desde-s3.handler
+    description: Genera pdf/<id>.pdf cuando llega el CDR a S3 (solo si el comprobante fue ACEPTADO)
+    memorySize: 512
+    timeout: 30
+    events:
+      # El bucket lo creó Terraform: Serverless solo le agrega esta notificación
+      - s3:
+          bucket: fe-${self:provider.stage}-comprobantes-${aws:accountId}
+          existing: true
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: cdr/
+            - suffix: .zip
+    iamRoleStatements:
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/pdf/*
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+          - dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
   sunat-mock:
     handler: src/sunat-mock.handler
     description: SUNAT simulada (SOAP sendBill) para las pruebas
