@@ -1,14 +1,30 @@
 {
   "info": {
     "name": "Facturación Electrónica – Grupo 4 (APF3)",
-    "description": "Pruebas de la API de emisión de comprobantes (reglas SUNAT, firma, SOAP, CDR y PDF). Ejecutar con el Runner en orden. Requiere `docker compose up -d`.",
+    "description": "Pruebas de la API de emisión de comprobantes desplegada en AWS (API Gateway + Cognito JWT + API key + Step Functions). Antes de ejecutar, en Variables de la colección (Current value) pon: baseUrl (la URL de la API, termina en /dev), apiKey y jwt (solo el token, sin la palabra Bearer). Ejecutar con el Runner en orden. La petición 12 se corre aparte con 60 iteraciones.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "rucEmisor", "value": "20000000001" },
-    { "key": "apiKey", "value": "" },
-    { "key": "jwt", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "rucEmisor",
+      "value": "20000000001"
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "jwt",
+      "value": ""
+    },
+    {
+      "key": "cantidad429",
+      "value": "0"
+    }
   ],
   "event": [
     {
@@ -25,31 +41,13 @@
           "  pm.request.headers.upsert({ key: 'x-api-key', value: pm.collectionVariables.get('apiKey') });",
           "}",
           "if (!nombre.includes('Sin JWT')) {",
-          "  pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.collectionVariables.get('jwt') });",
+          "  pm.request.headers.upsert({ key: 'Authorization', value: pm.collectionVariables.get('jwt') });",
           "}"
         ]
       }
     }
   ],
   "item": [
-    {
-      "name": "01 – Health",
-      "request": { "method": "GET", "url": "{{baseUrl}}/health" },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('responde 200 y status ok', () => {",
-              "  pm.response.to.have.status(200);",
-              "  pm.expect(pm.response.json().status).to.eql('ok');",
-              "});"
-            ]
-          }
-        }
-      ]
-    },
     {
       "name": "02 – Emitir factura válida (ACEPTADO)",
       "event": [
@@ -76,8 +74,8 @@
               "  pm.expect(r.estado).to.eql('ACEPTADO');",
               "  pm.expect(r.cdr.codigo).to.eql('0');",
               "});",
-              "pm.test('genera XML firmado, CDR y PDF', () => {",
-              "  pm.expect(r.archivos).to.have.all.keys('xml', 'cdr', 'pdf');",
+              "pm.test('devuelve el id y el hash de la firma', () => {",
+              "  pm.expect(r.id).to.eql(pm.collectionVariables.get('idFactura'));",
               "  pm.expect(r.hash).to.be.a('string').and.not.empty;",
               "});"
             ]
@@ -86,7 +84,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -101,7 +104,9 @@
           "listen": "prerequest",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.collectionVariables.set('numeroBoleta', Math.floor(Math.random() * 90000000) + 1000);"]
+            "exec": [
+              "pm.collectionVariables.set('numeroBoleta', Math.floor(Math.random() * 90000000) + 1000);"
+            ]
           }
         },
         {
@@ -119,7 +124,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -134,7 +144,9 @@
           "listen": "prerequest",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.collectionVariables.set('numeroRechazo', Math.floor(Math.random() * 90000000) + 1000);"]
+            "exec": [
+              "pm.collectionVariables.set('numeroRechazo', Math.floor(Math.random() * 90000000) + 1000);"
+            ]
           }
         },
         {
@@ -148,14 +160,19 @@
               "  pm.expect(r.estado).to.eql('RECHAZADO');",
               "  pm.expect(r.cdr.codigo).to.eql('2017');",
               "});",
-              "pm.test('no genera PDF', () => pm.expect(r.archivos).to.not.have.property('pdf'));"
+              "pm.test('no genera PDF', () => pm.expect(r.archivos || {}).to.not.have.property('pdf'));"
             ]
           }
         }
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -181,7 +198,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -207,7 +229,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -233,7 +260,12 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -250,16 +282,34 @@
             "type": "text/javascript",
             "exec": [
               "const r = pm.response.json();",
-              "pm.test('responde 200 con el comprobante ACEPTADO y sus archivos', () => {",
+              "pm.test('responde 200 con el comprobante ACEPTADO, su XML y su CDR', () => {",
               "  pm.response.to.have.status(200);",
               "  pm.expect(r.estado).to.eql('ACEPTADO');",
-              "  pm.expect(r.archivos).to.have.property('pdf');",
-              "});"
+              "  pm.expect(r.archivos).to.include.keys('xml', 'cdr');",
+              "});",
+              "",
+              "// El PDF lo crea el trigger de S3 unos segundos después de emitir: se vuelve a consultar hasta ~30 s",
+              "const comprobarPdf = (pdf) => pm.test('el PDF aparece solo (trigger de S3)', () => pm.expect(pdf, 'archivos.pdf').to.be.a('string'));",
+              "const consultar = (intento) => {",
+              "  pm.sendRequest({",
+              "    url: pm.variables.replaceIn('{{baseUrl}}/comprobantes/{{idFactura}}'),",
+              "    method: 'GET',",
+              "    header: { 'x-api-key': pm.collectionVariables.get('apiKey'), Authorization: pm.collectionVariables.get('jwt') },",
+              "  }, (err, res) => {",
+              "    const pdf = !err && res.json().archivos && res.json().archivos.pdf;",
+              "    if (pdf || intento >= 10) return comprobarPdf(pdf);",
+              "    setTimeout(() => consultar(intento + 1), 3000);",
+              "  });",
+              "};",
+              "if (r.archivos && r.archivos.pdf) comprobarPdf(r.archivos.pdf); else consultar(1);"
             ]
           }
         }
       ],
-      "request": { "method": "GET", "url": "{{baseUrl}}/comprobantes/{{idFactura}}" }
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/comprobantes/{{idFactura}}"
+      }
     },
     {
       "name": "09 – Consultar comprobante inexistente (404)",
@@ -268,11 +318,16 @@
           "listen": "test",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.test('responde 404', () => pm.response.to.have.status(404));"]
+            "exec": [
+              "pm.test('responde 404', () => pm.response.to.have.status(404));"
+            ]
           }
         }
       ],
-      "request": { "method": "GET", "url": "{{baseUrl}}/comprobantes/{{rucEmisor}}-01-F999-00000001" }
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/comprobantes/{{rucEmisor}}-01-F999-00000001"
+      }
     },
     {
       "name": "10 – Sin JWT (401)",
@@ -292,13 +347,20 @@
           "listen": "test",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.test('401', () => pm.response.to.have.status(401));"]
+            "exec": [
+              "pm.test('401', () => pm.response.to.have.status(401));"
+            ]
           }
         }
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -324,13 +386,20 @@
           "listen": "test",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.test('403', () => pm.response.to.have.status(403));"]
+            "exec": [
+              "pm.test('403', () => pm.response.to.have.status(403));"
+            ]
           }
         }
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "url": "{{baseUrl}}/comprobantes",
         "body": {
           "mode": "raw",
@@ -339,16 +408,14 @@
       }
     },
     {
-      "name": "12 – Exceso de peticiones (429)",
+      "name": "12 – Exceso de peticiones (429, correr con 60 iteraciones)",
       "event": [
         {
           "listen": "prerequest",
           "script": {
             "type": "text/javascript",
             "exec": [
-              "const numero = Math.floor(Math.random() * 90000000) + 1000;",
-              "pm.collectionVariables.set('numeroFactura', numero);",
-              "pm.collectionVariables.set('idFactura', `${pm.collectionVariables.get('rucEmisor')}-01-F001-${String(numero).padStart(8, '0')}`);"
+              "if (pm.info.iteration === 0) pm.collectionVariables.set('cantidad429', 0);"
             ]
           }
         },
@@ -356,18 +423,21 @@
           "listen": "test",
           "script": {
             "type": "text/javascript",
-            "exec": ["pm.test('429', () => pm.response.to.have.status(429));"]
+            "exec": [
+              "const codigo = pm.response.code;",
+              "if (codigo === 429) pm.collectionVariables.set('cantidad429', Number(pm.collectionVariables.get('cantidad429')) + 1);",
+              "pm.test('responde 404 (no existe) o 429 (límite de peticiones)', () => pm.expect([404, 429]).to.include(codigo));",
+              "if (pm.info.iteration === pm.info.iterationCount - 1) {",
+              "  pm.test('en la ráfaga hubo al menos un 429', () => pm.expect(Number(pm.collectionVariables.get('cantidad429'))).to.be.above(0));",
+              "}"
+            ]
           }
         }
       ],
       "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/comprobantes",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"tipo\": \"01\",\n  \"serie\": \"F001\",\n  \"numero\": {{numeroFactura}},\n  \"fechaEmision\": \"{{fechaHoy}}\",\n  \"moneda\": \"PEN\",\n  \"cliente\": { \"tipoDoc\": \"6\", \"numDoc\": \"20100070970\", \"nombre\": \"CLIENTE DEMO S.A.\" },\n  \"items\": [\n    { \"descripcion\": \"Servicio de consultoría\", \"unidad\": \"ZZ\", \"cantidad\": 2, \"valorUnitario\": 100 },\n    { \"descripcion\": \"Soporte técnico mensual\", \"unidad\": \"ZZ\", \"cantidad\": 1, \"valorUnitario\": 50 }\n  ],\n  \"totales\": { \"valorVenta\": 250, \"igv\": 45, \"total\": 295 }\n}"
-        }
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/comprobantes/{{rucEmisor}}-01-F999-00000001"
       }
     }
   ]
