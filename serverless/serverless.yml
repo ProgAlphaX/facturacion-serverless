@@ -1,0 +1,621 @@
+service: fe-serverless
+frameworkVersion: '3'
+
+plugins:
+  - serverless-esbuild
+  - serverless-iam-roles-per-function
+  - ./plugins/version-api.js
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  logRetentionInDays: 7
+  tags:
+    Project: facturacion-serverless
+    Env: ${self:provider.stage}
+    ManagedBy: serverless
+  # Los recursos de datos los crea Terraform; aquí solo se reciben sus nombres.
+  environment:
+    EMISOR_RUC: ${param:emisorRuc, '20000000001'}
+    EMISOR_RAZON_SOCIAL: ${param:emisorRazonSocial, 'EMPRESA DEMO S.A.C.'}
+    DYNAMODB_TABLE: fe-${self:provider.stage}-comprobantes
+    S3_BUCKET: fe-${self:provider.stage}-comprobantes-${aws:accountId}
+    SSM_CERTIFICADO: /facturacion/${self:provider.stage}/certificado
+    SSM_LLAVE_PRIVADA: /facturacion/${self:provider.stage}/llave-privada
+
+package:
+  individually: true
+
+# esbuild une cada handler con el código que usa (incluso el de ../api y ../sunat-mock) en un solo archivo.
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: false
+    platform: node
+    target: node22
+    exclude:
+      - '@aws-sdk/*'
+    # pdfkit carga sus fuentes con un require dinámico que esbuild no puede unir; se empaqueta aparte.
+    external:
+      - pdfkit
+
+functions:
+  validar:
+    handler: src/validar.handler
+    description: Valida el comprobante (esquema y reglas de negocio SUNAT)
+
+  generar-xml:
+    handler: src/generar-xml.handler
+    description: Genera el XML UBL 2.1 del comprobante
+
+  generar-pdf:
+    handler: src/generar-pdf.handler
+    description: Genera la representación impresa (PDF con QR)
+    memorySize: 512
+
+  firmar:
+    handler: src/firmar.handler
+    description: Firma el XML (XMLDSig) con el certificado de SSM y lo guarda en S3
+    iamRoleStatements:
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/firmados/*
+      - Effect: Allow
+        Action: ssm:GetParameter
+        Resource:
+          - arn:aws:ssm:${aws:region}:${aws:accountId}:parameter/facturacion/${self:provider.stage}/certificado
+          - arn:aws:ssm:${aws:region}:${aws:accountId}:parameter/facturacion/${self:provider.stage}/llave-privada
+
+  enviar-sunat:
+    handler: src/enviar-sunat.handler
+    description: Envía el XML firmado a SUNAT (SOAP sendBill) y guarda el CDR en S3
+    timeout: 30
+    environment:
+      SUNAT_URL: !Join ['', [!GetAtt SunatDashmockLambdaFunctionUrl.FunctionUrl, 'billService']]
+      SUNAT_USUARIO: ${param:sunatUsuario, 'MODDATOS'}
+      SUNAT_CLAVE: ${param:sunatClave, 'moddatos'}
+    iamRoleStatements:
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/cdr/*
+
+  guardar-resultado:
+    handler: src/guardar-resultado.handler
+    description: Reserva el comprobante (evita duplicados) y guarda su estado en DynamoDB
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  consultar-comprobante:
+    handler: src/consultar-comprobante.handler
+    description: Consulta un comprobante por su id (GET /comprobantes/{id})
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  pdf-automatico:
+    handler: src/pdf-desde-s3.handler
+    description: Genera pdf/<id>.pdf cuando llega el CDR a S3 (solo si el comprobante fue ACEPTADO)
+    memorySize: 512
+    timeout: 30
+    events:
+      # El bucket lo creó Terraform: Serverless solo le agrega esta notificación
+      - s3:
+          bucket: fe-${self:provider.stage}-comprobantes-${aws:accountId}
+          existing: true
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: cdr/
+            - suffix: .zip
+    iamRoleStatements:
+      - Effect: Allow
+        Action: s3:PutObject
+        Resource: arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/pdf/*
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+          - dynamodb:UpdateItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  sunat-mock:
+    handler: src/sunat-mock.handler
+    description: SUNAT simulada (SOAP sendBill) para las pruebas
+    memorySize: 512
+    timeout: 20
+    # URL pública de la función; el acceso lo controlan las credenciales SOL, igual que en SUNAT
+    url: true
+    environment:
+      SUNAT_USUARIO: ${param:sunatUsuario, 'MODDATOS'}
+      SUNAT_CLAVE: ${param:sunatClave, 'moddatos'}
+      RUCS_INACTIVOS: ${param:rucsInactivos, '20123456786'}
+
+resources:
+  Resources:
+    # Desde 2025 una URL de función pública necesita también este permiso; Serverless v3 solo crea InvokeFunctionUrl.
+    SunatMockInvokeFunctionPermission:
+      Type: AWS::Lambda::Permission
+      DependsOn: SunatDashmockLambdaFunction
+      Properties:
+        FunctionName: !GetAtt SunatDashmockLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: '*'
+        InvokedViaFunctionUrl: true
+
+    # Orquestación del flujo de emisión. Express + síncrona: quien la invoca recibe el resultado final.
+    GrupoLogsFlujo:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/vendedlogs/states/fe-${self:provider.stage}-emitir-comprobante
+        RetentionInDays: 7
+
+    RolFlujoEmision:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: states.amazonaws.com }
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: invocar-lambdas-del-flujo
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: lambda:InvokeFunction
+                  Resource:
+                    - !GetAtt ValidarLambdaFunction.Arn
+                    - !GetAtt GenerarDashxmlLambdaFunction.Arn
+                    - !GetAtt FirmarLambdaFunction.Arn
+                    - !GetAtt EnviarDashsunatLambdaFunction.Arn
+                    - !GetAtt GuardarDashresultadoLambdaFunction.Arn
+          - PolicyName: escribir-logs-del-flujo
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogDelivery
+                    - logs:GetLogDelivery
+                    - logs:UpdateLogDelivery
+                    - logs:DeleteLogDelivery
+                    - logs:ListLogDeliveries
+                    - logs:PutResourcePolicy
+                    - logs:DescribeResourcePolicies
+                    - logs:DescribeLogGroups
+                  Resource: '*'
+
+    FlujoEmision:
+      Type: AWS::StepFunctions::StateMachine
+      Properties:
+        StateMachineName: fe-${self:provider.stage}-emitir-comprobante
+        StateMachineType: EXPRESS
+        RoleArn: !GetAtt RolFlujoEmision.Arn
+        LoggingConfiguration:
+          Level: ALL
+          IncludeExecutionData: true
+          Destinations:
+            - CloudWatchLogsLogGroup:
+                LogGroupArn: !GetAtt GrupoLogsFlujo.Arn
+        Tags:
+          - { Key: Project, Value: facturacion-serverless }
+          - { Key: Env, Value: '${self:provider.stage}' }
+        Definition:
+          Comment: Emisión de un comprobante electrónico (validar, reservar, XML, firma, SUNAT, resultado)
+          StartAt: Entrada
+          States:
+            # Deja la factura recibida en $.evento; cada paso agrega su resultado al lado
+            Entrada:
+              Type: Pass
+              Parameters:
+                evento.$: $
+              Next: Validar
+
+            Validar:
+              Type: Task
+              Resource: !GetAtt ValidarLambdaFunction.Arn
+              InputPath: $.evento
+              ResultPath: $.validacion
+              Next: EsValido
+
+            EsValido:
+              Type: Choice
+              Choices:
+                - Variable: $.validacion.valido
+                  BooleanEquals: true
+                  Next: Reservar
+              Default: RespuestaInvalido
+
+            Reservar:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: RESERVAR
+                datos.$: $.validacion.datos
+              ResultPath: $.reserva
+              Next: EsNuevo
+
+            # Regla R12: un comprobante ya reservado no se procesa de nuevo
+            EsNuevo:
+              Type: Choice
+              Choices:
+                - Variable: $.reserva.reservado
+                  BooleanEquals: true
+                  Next: GenerarXml
+              Default: RespuestaDuplicado
+
+            GenerarXml:
+              Type: Task
+              Resource: !GetAtt GenerarDashxmlLambdaFunction.Arn
+              Parameters:
+                datos.$: $.validacion.datos
+              ResultPath: $.xml
+              Catch:
+                - { ErrorEquals: ['States.ALL'], ResultPath: $.error, Next: GuardarError }
+              Next: Firmar
+
+            Firmar:
+              Type: Task
+              Resource: !GetAtt FirmarLambdaFunction.Arn
+              Parameters:
+                id.$: $.reserva.id
+                xml.$: $.xml.xml
+              ResultPath: $.firma
+              Catch:
+                - { ErrorEquals: ['States.ALL'], ResultPath: $.error, Next: GuardarError }
+              Next: EnviarSunat
+
+            # Solo este paso reintenta: puede fallar por red o porque SUNAT no responde
+            EnviarSunat:
+              Type: Task
+              Resource: !GetAtt EnviarDashsunatLambdaFunction.Arn
+              Parameters:
+                id.$: $.reserva.id
+                xmlFirmado.$: $.firma.xmlFirmado
+              ResultPath: $.sunat
+              Retry:
+                - ErrorEquals: [ErrorSunat, Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.TooManyRequestsException, States.Timeout]
+                  IntervalSeconds: 2
+                  MaxAttempts: 3
+                  BackoffRate: 2
+              Catch:
+                - { ErrorEquals: ['States.ALL'], ResultPath: $.error, Next: GuardarError }
+              Next: ResultadoSunat
+
+            ResultadoSunat:
+              Type: Choice
+              Choices:
+                - Variable: $.sunat.cdr.estado
+                  StringEquals: ACEPTADO
+                  Next: GuardarAceptado
+                - Variable: $.sunat.cdr.estado
+                  StringEquals: RECHAZADO
+                  Next: GuardarRechazado
+              Default: CodigoSunatInesperado
+
+            CodigoSunatInesperado:
+              Type: Pass
+              Result:
+                Error: CodigoSunatInesperado
+              ResultPath: $.error
+              Next: GuardarError
+
+            GuardarAceptado:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: FINALIZAR
+                id.$: $.reserva.id
+                cdr.$: $.sunat.cdr
+                hash.$: $.firma.hash
+                archivos:
+                  xml.$: $.firma.xmlKey
+                  cdr.$: $.sunat.cdrKey
+              ResultPath: $.guardado
+              Next: RespuestaAceptado
+
+            GuardarRechazado:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: FINALIZAR
+                id.$: $.reserva.id
+                cdr.$: $.sunat.cdr
+                hash.$: $.firma.hash
+                archivos:
+                  xml.$: $.firma.xmlKey
+                  cdr.$: $.sunat.cdrKey
+              ResultPath: $.guardado
+              Next: RespuestaRechazado
+
+            # SUNAT no respondió tras los reintentos (o falló un paso interno): queda ERROR_ENVIO y se puede reenviar
+            GuardarError:
+              Type: Task
+              Resource: !GetAtt GuardarDashresultadoLambdaFunction.Arn
+              Parameters:
+                accion: ERROR
+                id.$: $.reserva.id
+                error.$: $.error.Error
+              ResultPath: $.guardado
+              Next: RespuestaError
+
+            RespuestaInvalido:
+              Type: Pass
+              Parameters:
+                http: 400
+                estado: INVALIDO
+                errores.$: $.validacion.errores
+              End: true
+
+            RespuestaDuplicado:
+              Type: Pass
+              Parameters:
+                http: 409
+                estado: DUPLICADO
+                id.$: $.reserva.id
+                regla: R12
+              End: true
+
+            RespuestaAceptado:
+              Type: Pass
+              Parameters:
+                http: 201
+                estado: ACEPTADO
+                id.$: $.reserva.id
+                hash.$: $.firma.hash
+                cdr.$: $.sunat.cdr
+              End: true
+
+            RespuestaRechazado:
+              Type: Pass
+              Parameters:
+                http: 201
+                estado: RECHAZADO
+                id.$: $.reserva.id
+                hash.$: $.firma.hash
+                cdr.$: $.sunat.cdr
+              End: true
+
+            RespuestaError:
+              Type: Pass
+              Parameters:
+                http: 502
+                estado: ERROR_ENVIO
+                id.$: $.reserva.id
+              End: true
+
+    # ── Fase 5: API pública protegida (Cognito JWT + API key con límite de peticiones) ──
+
+    GrupoUsuarios:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: fe-${self:provider.stage}-usuarios
+        # Sin registro libre: los usuarios los crea el administrador
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: true
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 12
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+
+    ClienteApi:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: fe-${self:provider.stage}-cliente-api
+        UserPoolId: !Ref GrupoUsuarios
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+
+    ApiFacturacion:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: fe-${self:provider.stage}-facturacion
+        Description: Emisión y consulta de comprobantes electrónicos
+        EndpointConfiguration:
+          Types: [REGIONAL]
+
+    AutorizadorJwt:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: cognito-jwt
+        Type: COGNITO_USER_POOLS
+        RestApiId: !Ref ApiFacturacion
+        IdentitySource: method.request.header.Authorization
+        ProviderARNs:
+          - !GetAtt GrupoUsuarios.Arn
+
+    RecursoComprobantes:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !GetAtt ApiFacturacion.RootResourceId
+        PathPart: comprobantes
+
+    RecursoComprobanteId:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !Ref RecursoComprobantes
+        PathPart: '{id}'
+
+    ValidadorCuerpo:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        Name: exige-cuerpo-json
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
+
+    ModeloComprobante:
+      Type: AWS::ApiGateway::Model
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        Name: Comprobante
+        ContentType: application/json
+        Schema:
+          $schema: http://json-schema.org/draft-04/schema#
+          type: object
+
+    RolApiHaciaFlujo:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: { Service: apigateway.amazonaws.com }
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: iniciar-flujo-de-emision
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: states:StartSyncExecution
+                  Resource: !Ref FlujoEmision
+
+    # POST /comprobantes → inicia la máquina de estados y traduce su resultado a un código HTTP
+    MetodoEmitir:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoComprobantes
+        HttpMethod: POST
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        RequestValidatorId: !Ref ValidadorCuerpo
+        RequestModels:
+          application/json: !Ref ModeloComprobante
+        Integration:
+          Type: AWS
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:states:action/StartSyncExecution'
+          Credentials: !GetAtt RolApiHaciaFlujo.Arn
+          PassthroughBehavior: NEVER
+          RequestParameters:
+            integration.request.header.Content-Type: "'application/x-amz-json-1.0'"
+          RequestTemplates:
+            application/json: !Join
+              - ''
+              - - "#set($cuerpo = $util.escapeJavaScript($input.json('$')).replaceAll(\"\\\\'\", \"'\"))\n"
+                - '{"input": "$cuerpo", "stateMachineArn": "'
+                - !Ref FlujoEmision
+                - '"}'
+          IntegrationResponses:
+            - StatusCode: '200'
+              ResponseTemplates:
+                application/json: |
+                  #if($input.path('$.status') == "SUCCEEDED")
+                  #set($salida = $util.parseJson($input.path('$.output')))
+                  #set($context.responseOverride.status = $salida.http)
+                  $input.path('$.output')
+                  #else
+                  #set($context.responseOverride.status = 502)
+                  {"estado": "ERROR_FLUJO", "mensaje": "El flujo de emisión no terminó correctamente"}
+                  #end
+        MethodResponses:
+          - StatusCode: '200'
+
+    # GET /comprobantes/{id} → Lambda que lee DynamoDB
+    MetodoConsultar:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoComprobanteId
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConsultarDashcomprobanteLambdaFunction.Arn}/invocations'
+
+    PermisoApiConsultar:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref ConsultarDashcomprobanteLambdaFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes/*'
+
+    # El plugin plugins/version-api.js le agrega un sufijo según el contenido de la API, para que API Gateway publique cada cambio
+    DespliegueApi:
+      Type: AWS::ApiGateway::Deployment
+      DependsOn: [MetodoEmitir, MetodoConsultar]
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+
+    EtapaApi:
+      Type: AWS::ApiGateway::Stage
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        StageName: ${self:provider.stage}
+        DeploymentId: !Ref DespliegueApi
+
+    # Límite pequeño a propósito para que el 429 se vea en la demostración
+    PlanDeUso:
+      Type: AWS::ApiGateway::UsagePlan
+      DependsOn: EtapaApi
+      Properties:
+        UsagePlanName: fe-${self:provider.stage}-plan-basico
+        Description: 5 peticiones por segundo, ráfaga de 10 y 1000 por día
+        ApiStages:
+          - ApiId: !Ref ApiFacturacion
+            Stage: ${self:provider.stage}
+        Throttle:
+          RateLimit: 5
+          BurstLimit: 10
+        Quota:
+          Limit: 1000
+          Period: DAY
+
+    LlaveApi:
+      Type: AWS::ApiGateway::ApiKey
+      DependsOn: EtapaApi
+      Properties:
+        Name: fe-${self:provider.stage}-llave-cliente-v2
+        Enabled: true
+
+    LlaveEnPlan:
+      Type: AWS::ApiGateway::UsagePlanKey
+      Properties:
+        KeyId: !Ref LlaveApi
+        KeyType: API_KEY
+        UsagePlanId: !Ref PlanDeUso
+
+    # Panel de CloudWatch: sin alarmas ni avisos por correo (decisión del proyecto); solo observación
+    PanelFacturacion:
+      Type: AWS::CloudWatch::Dashboard
+      Properties:
+        DashboardName: fe-${self:provider.stage}-facturacion
+        DashboardBody: ${file(./scripts/dashboard.js)}
+
+  Outputs:
+    FlujoEmisionArn:
+      Value: !Ref FlujoEmision
+    UrlApi:
+      Value: !Join ['', ['https://', !Ref ApiFacturacion, '.execute-api.', !Ref 'AWS::Region', '.amazonaws.com/', '${self:provider.stage}']]
+    GrupoUsuariosId:
+      Value: !Ref GrupoUsuarios
+    ClienteApiId:
+      Value: !Ref ClienteApi
+    LlaveApiId:
+      Value: !Ref LlaveApi

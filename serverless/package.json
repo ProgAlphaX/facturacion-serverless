@@ -1,0 +1,21 @@
+{
+  "name": "facturacion-serverless-despliegue",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Despliegue serverless (Lambda, Step Functions, API Gateway) de la plataforma de facturación",
+  "scripts": {
+    "desplegar": "serverless deploy",
+    "empaquetar": "serverless package",
+    "quitar": "serverless remove"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "serverless": "3.40.0",
+    "serverless-esbuild": "^1.57.4",
+    "serverless-iam-roles-per-function": "3.2.0"
+  },
+  "dependencies": {
+    "pdfkit": "^0.20.2",
+    "serverless-http": "^4.0.0"
+  }
+}

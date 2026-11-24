@@ -75,6 +75,7 @@ salida/
 
 # ---------- Serverless (APF3) ----------
 .serverless/
+serverless/eventos/
 
 # ---------- Sistema operativo y editores ----------
 .DS_Store
