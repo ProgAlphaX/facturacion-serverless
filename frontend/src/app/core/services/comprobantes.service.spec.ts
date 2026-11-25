@@ -89,3 +89,53 @@ describe('ComprobantesService.consultar', () => {
     expect(resultado).toEqual({ resultado: 'NO_EXISTE', mensaje: 'No existe el comprobante' });
   });
 });
+
+describe('ComprobantesService.listar y urlDescarga', () => {
+  let servicio: ComprobantesService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    servicio = TestBed.inject(ComprobantesService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+  });
+
+  it('listar manda solo los parámetros que se pidieron', () => {
+    servicio.listar({ estado: 'RECHAZADO', limite: 20, desde: 40 }).subscribe();
+    const peticion = http.expectOne((p) => p.url === `${entorno.apiBase}/comprobantes`);
+    expect(peticion.request.params.get('estado')).toBe('RECHAZADO');
+    expect(peticion.request.params.get('limite')).toBe('20');
+    expect(peticion.request.params.get('desde')).toBe('40');
+    peticion.flush({ error: 'x' }, { status: 400, statusText: 'Bad Request' });
+
+    servicio.listar().subscribe();
+    const sinFiltros = http.expectOne((p) => p.url === `${entorno.apiBase}/comprobantes`);
+    expect(sinFiltros.request.params.keys()).toEqual([]);
+    sinFiltros.flush({}, { status: 429, statusText: 'Too Many Requests' });
+  });
+
+  it('listar traduce una página válida', () => {
+    let resultado: string | undefined;
+    servicio.listar().subscribe((r) => {
+      resultado = r.resultado;
+    });
+    http
+      .expectOne((p) => p.url === `${entorno.apiBase}/comprobantes`)
+      .flush({ comprobantes: [], total: 0, siguiente: null, resumen: { PROCESANDO: 0, ACEPTADO: 0, RECHAZADO: 0, ERROR_ENVIO: 0 } });
+    expect(resultado).toBe('LISTADO');
+  });
+
+  it('urlDescarga pide el tipo de archivo y traduce el 404 de un PDF que aún no existe', () => {
+    let resultado: string | undefined;
+    servicio.urlDescarga('20000000001-01-F001-00000001', 'pdf').subscribe((r) => {
+      resultado = r.resultado;
+    });
+    const peticion = http.expectOne(`${entorno.apiBase}/comprobantes/20000000001-01-F001-00000001/archivos/pdf`);
+    peticion.flush({ error: 'no tiene archivo pdf' }, { status: 404, statusText: 'Not Found' });
+    expect(resultado).toBe('NO_DISPONIBLE');
+  });
+});
