@@ -34,6 +34,7 @@ flowchart LR
 | `docker-compose.yml`     | Entorno local completo: API, SUNAT simulada, DynamoDB local y S3 local                     |
 | `docker-compose.aws.yml` | Versión para la EC2: API y SUNAT simulada con DynamoDB y S3 reales                         |
 | `serverless/`            | APF3: Lambdas, Step Functions, API Gateway, Cognito y CloudWatch (Serverless Framework)    |
+| `frontend/`              | Web local en Angular 22 que usa la API del APF3 (login, facturar y consultar)              |
 
 ## Estado del proyecto
 
@@ -49,6 +50,12 @@ flowchart LR
 | APF3 7   | Panel de CloudWatch y logs a 7 días                  | ✅     |
 | APF3 8   | Pruebas de integración (script y Postman)            | ✅     |
 | APF3 9–10 | Informe v3.0 y cierre (tag `v0.3-apf3`)             | ✅     |
+| Web 1    | Backend encendido y credenciales para la web        | ✅     |
+| Web 2    | Proyecto Angular 22 y proxy local                    | ✅     |
+| Web 3    | Login con Cognito (renovación de token y rutas protegidas) | ✅ |
+| Web 4    | Pantalla Facturar con reglas en vivo y ejemplos      | ✅     |
+| Web 5    | Consulta de comprobantes e historial local           | ✅     |
+| Web 6–7  | Listado y descargas desde AWS (opcional), modo demo y cierre | ⏳ |
 
 ## Requisitos
 
@@ -257,6 +264,36 @@ aws cognito-idp admin-set-user-password --user-pool-id <GrupoUsuariosId> --usern
 ```
 
 Para no generar costos al terminar: `npx serverless remove` en `serverless/` y después `terraform destroy` en `infra/terraform/`. El NAT Gateway y la EC2 del APF2 siguen apagados por defecto (`enable_nat` y `enable_ec2` en `false`). La API key y el JWT nunca se suben al repositorio: se obtienen con `aws apigateway get-api-key` y `aws cognito-idp initiate-auth`.
+
+## Web local (carpeta `frontend/`)
+
+Interfaz en **Angular 22** para usar la API del APF3 sin Postman: iniciar sesión con Cognito, emitir facturas y boletas, y consultar cada comprobante. Corre solo en local (no se publica) y **no modifica el backend**: el servidor de desarrollo reenvía `/api` a API Gateway agregando la llave de API, así el navegador no necesita CORS ni conoce la llave.
+
+```mermaid
+flowchart LR
+    N["Navegador<br/>localhost:4200"] -->|"/api + ID token"| P["Proxy de ng serve<br/>+ x-api-key"]
+    P --> G[API Gateway]
+    N -->|login| C[Cognito]
+    G --> S[Step Functions + Lambdas]
+```
+
+| Pantalla | Qué hace |
+| --- | --- |
+| Iniciar sesión | Cognito con usuario y contraseña; el token se renueva solo |
+| Inicio | Resumen de lo emitido desde la web |
+| Facturar | Formulario con totales automáticos, reglas R01–R11 en vivo, 9 ejemplos y el resultado de cada caso |
+| Comprobantes | Historial local, filtro por estado, consulta por número y actualización de estados |
+| Detalle | Datos, respuesta de SUNAT, archivos en S3 y espera del PDF |
+
+```powershell
+# Con la pila del APF3 desplegada y el usuario de Cognito creado (ver sección anterior)
+cd frontend
+npm ci
+Copy-Item .env.example .env.local   # completar API_URL, COGNITO_CLIENT_ID y API_KEY
+npm start                           # http://localhost:4200
+```
+
+Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 66 pruebas (`npm test -- --watch=false`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
 
 ## Integrantes
 
