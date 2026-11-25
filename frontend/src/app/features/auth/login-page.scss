@@ -1,0 +1,65 @@
+.pantalla {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.panel {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--fn-brand);
+  color: #ffffff;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+}
+
+.nombre {
+  font-family: 'Nunito', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.subtitulo {
+  margin: 4px 0 24px;
+  color: var(--fn-ink-3);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+.error {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fde8eb;
+  color: var(--fn-rechazado);
+  font-weight: 600;
+}
+
+.entrar {
+  height: 48px;
+}

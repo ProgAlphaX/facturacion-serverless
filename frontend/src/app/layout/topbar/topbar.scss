@@ -1,7 +1,7 @@
 :host {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  gap: 16px;
   height: 56px;
   padding: 0 24px;
   background: var(--fn-surface);
@@ -9,6 +9,14 @@
 }
 
 .entorno {
+  margin-right: auto;
   color: var(--fn-ink-3);
   font-size: 13px;
+}
+
+.usuario {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
 }

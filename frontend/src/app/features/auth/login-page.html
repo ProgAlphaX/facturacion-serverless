@@ -1,0 +1,49 @@
+<main class="pantalla">
+  <section class="fn-card panel">
+    <div class="marca">
+      <span class="logo">F</span>
+      <span class="nombre">FacturaNube</span>
+    </div>
+    <h1>Iniciar sesión</h1>
+    <p class="subtitulo">Ingresa con tu usuario para emitir y consultar comprobantes.</p>
+
+    <form [formGroup]="formulario" (ngSubmit)="entrar()" novalidate>
+      <mat-form-field appearance="outline">
+        <mat-label>Usuario</mat-label>
+        <input matInput formControlName="usuario" autocomplete="username" />
+        @if (formulario.controls.usuario.touched && formulario.controls.usuario.hasError('required')) {
+          <mat-error>Escribe tu usuario.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Contraseña</mat-label>
+        <input matInput formControlName="contrasena" [type]="verContrasena() ? 'text' : 'password'" autocomplete="current-password" />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="alternarContrasena()"
+          [attr.aria-label]="verContrasena() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+        >
+          <mat-icon fontSet="material-symbols-rounded">{{ verContrasena() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        @if (formulario.controls.contrasena.touched && formulario.controls.contrasena.hasError('required')) {
+          <mat-error>Escribe tu contraseña.</mat-error>
+        }
+      </mat-form-field>
+
+      @if (error(); as mensaje) {
+        <p class="error" role="alert">{{ mensaje }}</p>
+      }
+
+      <button mat-flat-button type="submit" class="entrar" [disabled]="enviando()">
+        @if (enviando()) {
+          <mat-spinner diameter="20" />
+        } @else {
+          Entrar
+        }
+      </button>
+    </form>
+  </section>
+</main>
