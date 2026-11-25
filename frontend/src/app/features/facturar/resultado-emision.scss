@@ -1,0 +1,80 @@
+.tarjeta {
+  padding: 16px;
+  border: 1px solid var(--fn-line);
+  border-left-width: 6px;
+  border-radius: 12px;
+  background: var(--fn-surface);
+
+  &.aceptado {
+    border-left-color: var(--fn-aceptado);
+    h3 {
+      color: var(--fn-aceptado);
+    }
+  }
+
+  &.rechazado,
+  &.invalido {
+    border-left-color: var(--fn-rechazado);
+    h3 {
+      color: var(--fn-rechazado);
+    }
+  }
+
+  &.envio {
+    border-left-color: var(--fn-error-envio);
+    h3 {
+      color: var(--fn-error-envio);
+    }
+  }
+
+  &.aviso {
+    border-left-color: var(--fn-proceso);
+    h3 {
+      color: #92600a;
+    }
+  }
+}
+
+h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+p {
+  margin: 8px 0 12px;
+  color: var(--fn-ink-2);
+}
+
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 0 0 12px;
+}
+
+dt {
+  color: var(--fn-ink-3);
+  font-size: 13px;
+}
+
+dd {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.hash {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}

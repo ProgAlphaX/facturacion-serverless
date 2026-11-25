@@ -19,6 +19,10 @@ export const routes: Routes = [
         path: 'inicio',
         loadComponent: () => import('./features/inicio/inicio-page').then((m) => m.InicioPage),
       },
+      {
+        path: 'facturar',
+        loadComponent: () => import('./features/facturar/facturar-page').then((m) => m.FacturarPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
