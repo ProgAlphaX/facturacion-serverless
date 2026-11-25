@@ -1,0 +1,11 @@
+<h1>Inicio</h1>
+<p class="subtitulo">Facturación electrónica serverless: emitir y consultar comprobantes de SUNAT.</p>
+
+<section class="fn-card tarjeta">
+  <h2>Estados de un comprobante</h2>
+  <div class="estados">
+    @for (estado of estados; track estado) {
+      <fn-status-pill [estado]="estado" />
+    }
+  </div>
+</section>

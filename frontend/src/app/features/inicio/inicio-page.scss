@@ -1,0 +1,25 @@
+h1 {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.subtitulo {
+  margin: 4px 0 24px;
+  color: var(--fn-ink-3);
+}
+
+.tarjeta {
+  max-width: 560px;
+  padding: 20px;
+}
+
+h2 {
+  margin-bottom: 14px;
+  font-size: 16px;
+}
+
+.estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -1,0 +1,14 @@
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--fn-surface);
+  border-bottom: 1px solid var(--fn-line);
+}
+
+.entorno {
+  color: var(--fn-ink-3);
+  font-size: 13px;
+}

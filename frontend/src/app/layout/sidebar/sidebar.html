@@ -1,0 +1,18 @@
+<a class="marca" routerLink="/inicio" aria-label="FacturaNube, inicio">
+  <span class="logo">F</span>
+  <span class="nombre">FacturaNube</span>
+</a>
+
+<nav aria-label="Menú principal">
+  @for (item of items; track item.ruta) {
+    <a
+      class="item"
+      [class.activo]="activo(item, url())"
+      [attr.aria-current]="activo(item, url()) ? 'page' : null"
+      [routerLink]="item.ruta"
+    >
+      <mat-icon fontSet="material-symbols-rounded">{{ item.icono }}</mat-icon>
+      <span>{{ item.etiqueta }}</span>
+    </a>
+  }
+</nav>

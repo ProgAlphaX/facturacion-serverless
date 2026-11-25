@@ -1,0 +1,27 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+:host(.pill--ACEPTADO) {
+  background: var(--fn-aceptado);
+}
+
+:host(.pill--RECHAZADO) {
+  background: var(--fn-rechazado);
+}
+
+:host(.pill--PROCESANDO) {
+  background: var(--fn-proceso);
+  color: var(--fn-ink);
+}
+
+:host(.pill--ERROR_ENVIO) {
+  background: var(--fn-error-envio);
+}
