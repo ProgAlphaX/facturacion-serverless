@@ -111,30 +111,38 @@
 
           <section class="fn-card bloque">
             <h2>Archivos</h2>
+            @if (avisoDescarga(); as aviso) {
+              <p class="nota error" role="alert">{{ aviso }}</p>
+            }
             <ul class="archivos">
-              <li>
-                <mat-icon fontSet="material-symbols-rounded">code</mat-icon>
-                <span>XML firmado</span>
-                <code>{{ c.archivos?.xml ?? 'no disponible' }}</code>
-              </li>
-              <li>
-                <mat-icon fontSet="material-symbols-rounded">verified</mat-icon>
-                <span>CDR de SUNAT</span>
-                <code>{{ c.archivos?.cdr ?? 'no disponible' }}</code>
-              </li>
-              <li>
-                <mat-icon fontSet="material-symbols-rounded">picture_as_pdf</mat-icon>
-                <span>PDF con QR</span>
-                @if (c.archivos?.pdf; as pdf) {
-                  <code>{{ pdf }}</code>
-                } @else if (esperandoPdf()) {
-                  <span class="nota"><mat-spinner diameter="14" /> generándose…</span>
-                } @else {
-                  <code>no disponible</code>
-                }
-              </li>
+              @for (tipo of tiposArchivo; track tipo) {
+                <li>
+                  <mat-icon fontSet="material-symbols-rounded">{{ tipo === 'pdf' ? 'picture_as_pdf' : tipo === 'cdr' ? 'verified' : 'code' }}</mat-icon>
+                  <span>{{ etiquetaArchivo[tipo] }}</span>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="claveDe(c, tipo) === undefined || descargando().has(tipo)"
+                    (click)="descargar(tipo)"
+                  >
+                    @if (descargando().has(tipo)) {
+                      <mat-spinner diameter="16" />
+                    } @else {
+                      <mat-icon fontSet="material-symbols-rounded">download</mat-icon>
+                    }
+                    Descargar
+                  </button>
+                  @if (claveDe(c, tipo); as clave) {
+                    <code>{{ clave }}</code>
+                  } @else if (tipo === 'pdf' && esperandoPdf()) {
+                    <span class="nota"><mat-spinner diameter="14" /> generándose…</span>
+                  } @else {
+                    <code>no disponible</code>
+                  }
+                </li>
+              }
             </ul>
-            <p class="nota">Son claves del bucket privado de S3. Para descargarlos hace falta la Fase 6 (opcional).</p>
+            <p class="nota">El enlace de descarga es temporal: vence a los 5 minutos.</p>
           </section>
         </aside>
       </div>
