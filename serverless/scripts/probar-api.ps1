@@ -129,7 +129,25 @@ do { $hayPdf = Test-ExistePdf $idFactura; if (-not $hayPdf) { Start-Sleep 3 } } 
 Add-Resultado 'PDF de la factura aceptada' 'existe pdf/<id>.pdf' $(if ($hayPdf) { 'existe' } else { 'no existe' }) $hayPdf
 Add-Resultado 'PDF de la rechazada' 'no existe' $(if (Test-ExistePdf $idRechazada) { 'existe' } else { 'no existe' }) (-not (Test-ExistePdf $idRechazada))
 
-# 10. Ráfaga: debe aparecer algún 429 (hasta 3 intentos; el límite es aproximado)
+# 10. Listado (GET /comprobantes): la factura recién emitida es de las más nuevas, así que aparece en la primera página
+$r = Send-Api GET '/comprobantes?limite=100' $null $cabeceras
+$aparece = $r.Codigo -eq 200 -and (@($r.Cuerpo.comprobantes | Where-Object id -eq $idFactura).Count -eq 1)
+Add-Resultado 'Listado incluye la factura emitida' '200 y aparece' "$($r.Codigo) $(if ($aparece) { 'aparece' } else { 'no aparece' })" $aparece
+$r = Send-Api GET '/comprobantes?estado=INVENTADO' $null $cabeceras
+Add-Resultado 'Listado con estado inválido' '400' "$($r.Codigo)" ($r.Codigo -eq 400)
+
+# 11. Descarga: URL temporal de S3 y contenido real del PDF; el PDF de una rechazada no existe
+$r = Send-Api GET "/comprobantes/$idFactura/archivos/pdf" $null $cabeceras
+$esPdf = $false
+if ($r.Codigo -eq 200 -and $r.Cuerpo.url) {
+  $archivo = Invoke-WebRequest $r.Cuerpo.url -SkipHttpErrorCheck
+  $esPdf = $archivo.StatusCode -eq 200 -and [System.Text.Encoding]::ASCII.GetString($archivo.Content[0..3]) -eq '%PDF'
+}
+Add-Resultado 'Descarga del PDF por URL temporal' '200 y archivo %PDF' "$($r.Codigo) $(if ($esPdf) { '%PDF' } else { 'otro contenido' })" $esPdf
+$r = Send-Api GET "/comprobantes/$idRechazada/archivos/pdf" $null $cabeceras
+Add-Resultado 'Descarga del PDF de la rechazada' '404' "$($r.Codigo)" ($r.Codigo -eq 404)
+
+# 12. Ráfaga: debe aparecer algún 429 (hasta 3 intentos; el límite es aproximado)
 $conteo = @{}
 for ($intento = 1; $intento -le 3 -and -not $conteo.ContainsKey(429); $intento++) {
   $conteo = @{}
