@@ -55,7 +55,8 @@ flowchart LR
 | Web 3    | Login con Cognito (renovación de token y rutas protegidas) | ✅ |
 | Web 4    | Pantalla Facturar con reglas en vivo y ejemplos      | ✅     |
 | Web 5    | Consulta de comprobantes e historial local           | ✅     |
-| Web 6–7  | Listado y descargas desde AWS (opcional), modo demo y cierre | ⏳ |
+| Web 6    | Listado y descargas desde AWS (2 rutas y 2 Lambdas nuevas) | ✅ |
+| Web 7    | Modo demo, ensayo y cierre                           | ⏳     |
 
 ## Requisitos
 
@@ -245,6 +246,19 @@ flowchart LR
 
 Los handlers de las Lambdas están en `api/src/lambdas/` y sus pruebas en `api/tests/`.
 
+### Rutas de la API desplegada
+
+Todas exigen el JWT de Cognito (`Authorization`) y la llave de API (`x-api-key`), y comparten el límite de 5 peticiones por segundo.
+
+| Ruta | Lambda | Qué hace |
+| ---- | ------ | -------- |
+| `POST /comprobantes` | Step Functions (integración directa) | Emite una factura o boleta: 201 `ACEPTADO` o `RECHAZADO`, 400 `INVALIDO`, 409 `DUPLICADO`, 502 `ERROR_ENVIO` |
+| `GET /comprobantes/{id}` | `consultar-comprobante` | Devuelve el registro completo (`RUC-TIPO-SERIE-NUMERO`) |
+| `GET /comprobantes?estado=&limite=&desde=` | `listar-comprobantes` | Lista paginada del emisor, del más nuevo al más antiguo (límite por defecto 50, máximo 100), con el conteo por estado |
+| `GET /comprobantes/{id}/archivos/{xml\|cdr\|pdf}` | `descargar-archivo` | Devuelve una URL de S3 que vence a los 5 minutos; la clave del archivo sale de DynamoDB, no de lo que envíe quien llama |
+
+Cada Lambda tiene su propio rol IAM de mínimo privilegio (`dynamodb:Query` para listar; `GetItem` y `s3:GetObject` solo sobre `firmados/`, `cdr/` y `pdf/` para descargar).
+
 ### Desplegar, probar y destruir el APF3
 
 Requisitos: AWS CLI con el perfil `fe-dev`, Node.js 22 o superior, PowerShell 7 y la capa permanente de Terraform ya creada (`terraform apply` en `infra/terraform/`).
@@ -259,7 +273,7 @@ npx serverless deploy
 aws cognito-idp admin-create-user --user-pool-id <GrupoUsuariosId> --username tester --message-action SUPPRESS --profile fe-dev --region us-east-1
 aws cognito-idp admin-set-user-password --user-pool-id <GrupoUsuariosId> --username tester --password "<clave>" --permanent --profile fe-dev --region us-east-1
 
-# 3. Probar la API desplegada (11 casos; pide la contraseña, no se guarda)
+# 3. Probar la API desplegada (15 casos; pide la contraseña, no se guarda)
 ./scripts/probar-api.ps1
 ```
 
@@ -282,8 +296,8 @@ flowchart LR
 | Iniciar sesión | Cognito con usuario y contraseña; el token se renueva solo |
 | Inicio | Resumen de lo emitido desde la web |
 | Facturar | Formulario con totales automáticos, reglas R01–R11 en vivo, 9 ejemplos y el resultado de cada caso |
-| Comprobantes | Historial local, filtro por estado, consulta por número y actualización de estados |
-| Detalle | Datos, respuesta de SUNAT, archivos en S3 y espera del PDF |
+| Comprobantes | Listado desde AWS (todo lo emitido, también desde Postman), filtro por estado, «Cargar más», consulta por número y descarga del PDF |
+| Detalle | Datos, respuesta de SUNAT y descarga del XML, el CDR y el PDF (enlace temporal de S3) |
 
 ```powershell
 # Con la pila del APF3 desplegada y el usuario de Cognito creado (ver sección anterior)
@@ -293,7 +307,7 @@ Copy-Item .env.example .env.local   # completar API_URL, COGNITO_CLIENT_ID y API
 npm start                           # http://localhost:4200
 ```
 
-Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 66 pruebas (`npm test -- --watch=false`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
+Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 77 pruebas (`npm test -- --watch=false`); el backend tiene 115 (`npm test` en `api/`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
 
 ## Integrantes
 

@@ -1,16 +1,16 @@
 # FacturaNube · Web local
 
-Interfaz web (Angular 22) para usar la plataforma de facturación del APF3 sin Postman: iniciar sesión, emitir facturas y boletas, y consultar el estado de cada comprobante. **Solo corre en local**: no se publica y **no cambia nada del backend**.
+Interfaz web (Angular 22) para usar la plataforma de facturación del APF3 sin Postman: iniciar sesión, emitir facturas y boletas, y consultar, listar y descargar cada comprobante. **Solo corre en local** (no se publica). El flujo de emisión del backend no se tocó; para el listado y las descargas se agregaron dos rutas y dos Lambdas (ver el README principal).
 
 ## Qué incluye
 
 | Pantalla | Qué hace |
 | --- | --- |
 | **Iniciar sesión** | Usuario y contraseña de Cognito. La sesión vive en `sessionStorage` (se borra al cerrar la pestaña) y la contraseña nunca se guarda. |
-| **Inicio** | Tarjetas con lo emitido desde esta web: total, aceptados, rechazados y con error de envío. |
+| **Inicio** | Tarjetas con el conteo por estado de todos los comprobantes guardados en AWS. |
 | **Facturar** | Formulario de factura o boleta con ítems dinámicos y totales automáticos. Revisa en vivo las reglas R01–R05 y R07–R11 y muestra el resultado de cada caso (aceptado, rechazado por SUNAT, reglas incumplidas, duplicado, error de envío, 429, sin conexión, tiempo agotado). Incluye 9 ejemplos y un «modo prueba» para enviar aunque haya avisos. |
-| **Comprobantes** | Historial de lo emitido, filtro por estado, consulta por número y actualización de estados respetando el límite de 5 peticiones por segundo. |
-| **Detalle** | Cliente, ítems, totales, respuesta de SUNAT y claves de los archivos en S3. Si el comprobante fue aceptado, espera unos segundos a que aparezca el PDF. |
+| **Comprobantes** | Lista desde AWS (también lo emitido por Postman o scripts), filtro por estado con conteos, «Cargar más», consulta por número y descarga del PDF. |
+| **Detalle** | Cliente, ítems, totales y respuesta de SUNAT. Descarga del XML, el CDR y el PDF con enlaces temporales de S3 (vencen a los 5 minutos). Si el comprobante fue aceptado, espera unos segundos a que aparezca el PDF. |
 
 ## Cómo funciona la conexión
 
@@ -60,10 +60,10 @@ El tipado es estricto: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPrope
 src/app/
 ├── core/
 │   ├── config/        entorno (región y cliente de Cognito)
-│   ├── models/        tipos del comprobante, de la emisión, de la consulta y del historial
+│   ├── models/        tipos del comprobante y de cada respuesta de la API (emisión, consulta, listado y descarga)
 │   ├── reglas/        copia local de las reglas R01–R11 (la palabra final es del backend)
 │   ├── ejemplos/      comprobantes de ejemplo con la fecha de hoy
-│   ├── services/      auth, comprobantes (emitir y consultar) e historial local
+│   ├── services/      auth y comprobantes (emitir, consultar, listar y pedir la URL de descarga)
 │   ├── interceptors/  agrega y renueva el ID token
 │   └── guards/        rutas protegidas
 ├── features/          auth, inicio, facturar, comprobantes (lista y detalle)
@@ -73,8 +73,8 @@ src/app/
 
 ## Límites conocidos
 
-- El historial vive en `localStorage` de este navegador: el backend solo consulta **por número** y todavía no tiene un listado.
-- Los archivos (XML, CDR y PDF) se muestran como claves de S3; descargarlos necesita rutas nuevas en el backend (Fase 6 del plan, opcional).
+- El listado trae como máximo 2 000 comprobantes del emisor por consulta (tope de seguridad del backend) y ordena en memoria por fecha de creación.
+- Los enlaces de descarga duran 5 minutos: mientras no venzan, quien tenga el enlace puede bajar ese archivo sin iniciar sesión, por eso la web no los guarda.
 - R06 (RUC del emisor) y R12 (duplicados) solo las decide AWS; R10 y R11 no se pueden provocar desde la pantalla porque los totales se calculan solos.
 
 ## Costo
