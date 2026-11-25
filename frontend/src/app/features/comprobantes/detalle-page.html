@@ -1,0 +1,188 @@
+<a mat-button routerLink="/comprobantes" class="volver">
+  <mat-icon fontSet="material-symbols-rounded">arrow_back</mat-icon>
+  Volver a comprobantes
+</a>
+
+@if (cargando() && resultado() === null) {
+  <p class="cargando"><mat-spinner diameter="24" /> Consultando {{ id() }}…</p>
+}
+
+@if (resultado(); as r) {
+  @switch (r.resultado) {
+    @case ('ENCONTRADO') {
+      @let c = r.comprobante;
+      <header class="cabecera">
+        <div>
+          <h1>{{ etiquetaTipo[c.tipo] }} {{ c.serie }}-{{ c.numero }}</h1>
+          <p class="subtitulo id">{{ c.id }}</p>
+        </div>
+        <div class="estado">
+          <fn-status-pill [estado]="c.estado" />
+          <button mat-stroked-button type="button" [disabled]="cargando()" (click)="actualizar()">
+            <mat-icon fontSet="material-symbols-rounded">refresh</mat-icon>
+            Actualizar
+          </button>
+        </div>
+      </header>
+
+      <div class="cuerpo">
+        <div class="columna">
+          <section class="fn-card bloque">
+            <h2>Cliente</h2>
+            <dl>
+              <dt>Nombre</dt>
+              <dd>{{ c.cliente.nombre }}</dd>
+              <dt>{{ etiquetaDocumento[c.cliente.tipoDoc] }}</dt>
+              <dd>{{ c.cliente.numDoc }}</dd>
+              <dt>Fecha de emisión</dt>
+              <dd>{{ c.fechaEmision }}</dd>
+              <dt>Moneda</dt>
+              <dd>{{ c.moneda }}</dd>
+            </dl>
+          </section>
+
+          <section class="fn-card bloque">
+            <h2>Ítems</h2>
+            <div class="tabla-envoltorio">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Descripción</th>
+                    <th scope="col">Unidad</th>
+                    <th scope="col" class="derecha">Cantidad</th>
+                    <th scope="col" class="derecha">Valor unitario</th>
+                    <th scope="col" class="derecha">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of c.items; track $index) {
+                    <tr>
+                      <td>{{ item.descripcion }}</td>
+                      <td>{{ etiquetaUnidad[item.unidad] }}</td>
+                      <td class="derecha">{{ item.cantidad }}</td>
+                      <td class="derecha">{{ item.valorUnitario | number: '1.2-2' }}</td>
+                      <td class="derecha">{{ importe(item.cantidad, item.valorUnitario) | number: '1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <aside class="columna">
+          <section class="fn-card bloque">
+            <h2>Totales</h2>
+            <dl class="totales">
+              <dt>Valor de venta</dt>
+              <dd>{{ simbolo() }} {{ c.totales.valorVenta | number: '1.2-2' }}</dd>
+              <dt>IGV (18 %)</dt>
+              <dd>{{ simbolo() }} {{ c.totales.igv | number: '1.2-2' }}</dd>
+              <dt class="total">Total</dt>
+              <dd class="total">{{ simbolo() }} {{ c.totales.total | number: '1.2-2' }}</dd>
+            </dl>
+          </section>
+
+          <section class="fn-card bloque">
+            <h2>Respuesta de SUNAT</h2>
+            @if (c.cdr; as cdr) {
+              <dl>
+                <dt>Código (CDR)</dt>
+                <dd>{{ cdr.codigo }}</dd>
+                <dt>Descripción</dt>
+                <dd>{{ cdr.descripcion }}</dd>
+                @for (observacion of cdr.observaciones; track observacion) {
+                  <dt>Observación</dt>
+                  <dd>{{ observacion }}</dd>
+                }
+              </dl>
+            } @else if (c.estado === 'ERROR_ENVIO') {
+              <p class="nota error">
+                No se pudo enviar a SUNAT{{ c.error ? ' (' + c.error + ')' : '' }}. El comprobante quedó guardado con este número.
+              </p>
+            } @else {
+              <p class="nota">Todavía no hay respuesta de SUNAT.</p>
+            }
+            @if (c.hash; as hash) {
+              <p class="etiqueta">Huella (hash)</p>
+              <p class="hash">{{ hash }}</p>
+            }
+          </section>
+
+          <section class="fn-card bloque">
+            <h2>Archivos</h2>
+            <ul class="archivos">
+              <li>
+                <mat-icon fontSet="material-symbols-rounded">code</mat-icon>
+                <span>XML firmado</span>
+                <code>{{ c.archivos?.xml ?? 'no disponible' }}</code>
+              </li>
+              <li>
+                <mat-icon fontSet="material-symbols-rounded">verified</mat-icon>
+                <span>CDR de SUNAT</span>
+                <code>{{ c.archivos?.cdr ?? 'no disponible' }}</code>
+              </li>
+              <li>
+                <mat-icon fontSet="material-symbols-rounded">picture_as_pdf</mat-icon>
+                <span>PDF con QR</span>
+                @if (c.archivos?.pdf; as pdf) {
+                  <code>{{ pdf }}</code>
+                } @else if (esperandoPdf()) {
+                  <span class="nota"><mat-spinner diameter="14" /> generándose…</span>
+                } @else {
+                  <code>no disponible</code>
+                }
+              </li>
+            </ul>
+            <p class="nota">Son claves del bucket privado de S3. Para descargarlos hace falta la Fase 6 (opcional).</p>
+          </section>
+        </aside>
+      </div>
+    }
+    @case ('NO_EXISTE') {
+      <section class="fn-card bloque mensaje" role="alert">
+        <mat-icon fontSet="material-symbols-rounded">search_off</mat-icon>
+        <h2>No existe ese comprobante</h2>
+        <p>{{ r.mensaje }}</p>
+      </section>
+    }
+    @case ('LIMITE_PETICIONES') {
+      <section class="fn-card bloque mensaje" role="alert">
+        <mat-icon fontSet="material-symbols-rounded">speed</mat-icon>
+        <h2>Demasiadas peticiones</h2>
+        <p>La API permite 5 por segundo. Espera unos segundos y pulsa Actualizar.</p>
+        <button mat-stroked-button type="button" (click)="actualizar()">Actualizar</button>
+      </section>
+    }
+    @case ('SESION_EXPIRADA') {
+      <section class="fn-card bloque mensaje" role="alert">
+        <mat-icon fontSet="material-symbols-rounded">lock_clock</mat-icon>
+        <h2>Tu sesión venció</h2>
+        <p>Vuelve a iniciar sesión para seguir.</p>
+      </section>
+    }
+    @case ('SIN_CONEXION') {
+      <section class="fn-card bloque mensaje" role="alert">
+        <mat-icon fontSet="material-symbols-rounded">wifi_off</mat-icon>
+        <h2>Sin conexión</h2>
+        <p>No se pudo llegar a la API. Revisa tu internet y que el servidor local siga encendido.</p>
+        <button mat-stroked-button type="button" (click)="actualizar()">Reintentar</button>
+      </section>
+    }
+    @case ('TIEMPO_AGOTADO') {
+      <section class="fn-card bloque mensaje" role="alert">
+        <mat-icon fontSet="material-symbols-rounded">hourglass_disabled</mat-icon>
+        <h2>La API tardó demasiado</h2>
+        <button mat-stroked-button type="button" (click)="actualizar()">Reintentar</button>
+      </section>
+    }
+    @case ('ERROR') {
+      <section class="fn-card bloque mensaje" role="alert">
+        <mat-icon fontSet="material-symbols-rounded">warning</mat-icon>
+        <h2>Algo salió mal</h2>
+        <p>{{ r.mensaje }}</p>
+        <button mat-stroked-button type="button" (click)="actualizar()">Reintentar</button>
+      </section>
+    }
+  }
+}

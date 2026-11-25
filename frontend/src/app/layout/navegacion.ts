@@ -8,6 +8,7 @@ export interface ItemNav {
 export const ITEMS_NAVEGACION: readonly ItemNav[] = [
   { ruta: '/inicio', icono: 'home', etiqueta: 'Inicio' },
   { ruta: '/facturar', icono: 'receipt_long', etiqueta: 'Facturar' },
+  { ruta: '/comprobantes', icono: 'folder_open', etiqueta: 'Comprobantes' },
 ];
 
 export function estaActivo(item: ItemNav, url: string): boolean {

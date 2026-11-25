@@ -23,6 +23,14 @@ export const routes: Routes = [
         path: 'facturar',
         loadComponent: () => import('./features/facturar/facturar-page').then((m) => m.FacturarPage),
       },
+      {
+        path: 'comprobantes',
+        loadComponent: () => import('./features/comprobantes/comprobantes-page').then((m) => m.ComprobantesPage),
+      },
+      {
+        path: 'comprobantes/:id',
+        loadComponent: () => import('./features/comprobantes/detalle-page').then((m) => m.DetallePage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -1,0 +1,103 @@
+<header class="cabecera">
+  <div>
+    <h1>Comprobantes</h1>
+    <p class="subtitulo">Lo que emitiste desde esta web. Para ver otro, consúltalo por su número.</p>
+  </div>
+  <button mat-stroked-button type="button" [disabled]="todas().length === 0 || hayActualizacion()" (click)="actualizarTodo()">
+    <mat-icon fontSet="material-symbols-rounded">refresh</mat-icon>
+    Actualizar estados
+  </button>
+</header>
+
+<section class="fn-card bloque buscador">
+  <form [formGroup]="formularioNumero" (ngSubmit)="consultarNumero()" novalidate>
+    <mat-form-field appearance="outline" class="numero">
+      <mat-label>Consultar por número</mat-label>
+      <input matInput formControlName="numero" placeholder="20000000001-01-F001-00000001" />
+    </mat-form-field>
+    <button mat-flat-button type="submit">Consultar</button>
+  </form>
+  @if (errorNumero(); as mensaje) {
+    <p class="error" role="alert">{{ mensaje }}</p>
+  }
+</section>
+
+@if (aviso(); as mensaje) {
+  <p class="aviso" role="alert">
+    <mat-icon fontSet="material-symbols-rounded">warning</mat-icon>
+    {{ mensaje }}
+  </p>
+}
+
+<section class="fn-card bloque">
+  <div class="filtros">
+    <mat-form-field appearance="outline" class="filtro">
+      <mat-label>Estado</mat-label>
+      <mat-select [value]="filtro()" (selectionChange)="cambiarFiltro($event.value)">
+        <mat-option value="TODOS">Todos</mat-option>
+        @for (estado of estados; track estado) {
+          <mat-option [value]="estado">{{ etiquetaEstado[estado] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    @if (todas().length > 0) {
+      <button mat-button type="button" (click)="vaciar()">Vaciar historial</button>
+    }
+  </div>
+
+  @if (todas().length === 0) {
+    <div class="vacio">
+      <mat-icon fontSet="material-symbols-rounded">receipt_long</mat-icon>
+      <h2>Aún no emitiste comprobantes desde esta web</h2>
+      <p>Emite uno en Facturar, o consulta uno por su número arriba.</p>
+      <a mat-flat-button routerLink="/facturar">Ir a Facturar</a>
+    </div>
+  } @else if (filas().length === 0) {
+    <p class="vacio-filtro">No hay comprobantes con ese estado.</p>
+  } @else {
+    <div class="tabla-envoltorio">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Número</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Cliente</th>
+            <th scope="col" class="derecha">Total</th>
+            <th scope="col">Fecha</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="oculto">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (fila of filas(); track fila.id) {
+            <tr>
+              <td class="id">{{ fila.serie }}-{{ fila.numero }}</td>
+              <td>{{ etiquetaTipo[fila.tipo] }}</td>
+              <td>{{ fila.clienteNombre }}</td>
+              <td class="derecha">{{ simbolo(fila.moneda) }} {{ fila.total | number: '1.2-2' }}</td>
+              <td>{{ fila.fechaEmision }}</td>
+              <td><fn-status-pill [estado]="fila.estado" /></td>
+              <td class="acciones">
+                <a mat-icon-button [routerLink]="['/comprobantes', fila.id]" [attr.aria-label]="'Ver el detalle de ' + fila.id">
+                  <mat-icon fontSet="material-symbols-rounded">visibility</mat-icon>
+                </a>
+                <button
+                  mat-icon-button
+                  type="button"
+                  [disabled]="actualizando().has(fila.id)"
+                  [attr.aria-label]="'Actualizar el estado de ' + fila.id"
+                  (click)="actualizar(fila.id)"
+                >
+                  <mat-icon fontSet="material-symbols-rounded" [class.girando]="actualizando().has(fila.id)">refresh</mat-icon>
+                </button>
+                <button mat-icon-button type="button" [attr.aria-label]="'Quitar ' + fila.id + ' del historial'" (click)="quitar(fila.id)">
+                  <mat-icon fontSet="material-symbols-rounded">delete</mat-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
