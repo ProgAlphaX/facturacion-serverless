@@ -1,26 +1,24 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
-import { EMPTY, Observable, concatMap, delay, exhaustMap, from, interval, of, tap } from 'rxjs';
 
-import { ESTADOS_COMPROBANTE, ETIQUETA_ESTADO, EstadoComprobante, ETIQUETA_TIPO } from '../../core/models/comprobante';
-import { FORMATO_ID, ResultadoConsulta, normalizarId } from '../../core/models/consulta';
+import { ESTADOS_COMPROBANTE, ETIQUETA_ESTADO, ETIQUETA_TIPO, EstadoComprobante } from '../../core/models/comprobante';
+import { FORMATO_ID, normalizarId } from '../../core/models/consulta';
+import { iniciarDescarga, mensajeDeDescarga } from '../../core/models/descarga';
+import { ConteoPorEstado, ResultadoListado, ResumenComprobante } from '../../core/models/listado';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
-import { HistorialService } from '../../core/services/historial.service';
 import { StatusPill } from '../../shared/ui/status-pill/status-pill';
 
 type FiltroEstado = EstadoComprobante | 'TODOS';
 
-/** La API permite 5 peticiones por segundo: al actualizar varias se espera entre una y otra. */
-const PAUSA_ENTRE_CONSULTAS_MS = 300;
-const INTERVALO_EN_PROCESO_MS = 5000;
+const FILAS_POR_PAGINA = 25;
 
 @Component({
   selector: 'fn-comprobantes-page',
@@ -32,6 +30,7 @@ const INTERVALO_EN_PROCESO_MS = 5000;
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatProgressSpinnerModule,
     MatSelectModule,
     StatusPill,
   ],
@@ -41,9 +40,7 @@ const INTERVALO_EN_PROCESO_MS = 5000;
 })
 export class ComprobantesPage {
   private readonly comprobantes = inject(ComprobantesService);
-  private readonly historial = inject(HistorialService);
   private readonly router = inject(Router);
-  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly etiquetaEstado = ETIQUETA_ESTADO;
   protected readonly etiquetaTipo = ETIQUETA_TIPO;
@@ -51,32 +48,66 @@ export class ComprobantesPage {
 
   protected readonly formularioNumero = new FormGroup({ numero: new FormControl('', { nonNullable: true }) });
   protected readonly errorNumero = signal<string | null>(null);
-  protected readonly filtro = signal<FiltroEstado>('TODOS');
-  protected readonly aviso = signal<string | null>(null);
-  protected readonly actualizando = signal<ReadonlySet<string>>(new Set());
 
-  protected readonly todas = this.historial.entradas;
-  protected readonly filas = computed(() => {
-    const filtro = this.filtro();
-    return filtro === 'TODOS' ? this.todas() : this.todas().filter((entrada) => entrada.estado === filtro);
+  protected readonly filtro = signal<FiltroEstado>('TODOS');
+  protected readonly filas = signal<readonly ResumenComprobante[]>([]);
+  protected readonly total = signal(0);
+  protected readonly siguiente = signal<number | null>(null);
+  protected readonly resumen = signal<ConteoPorEstado | null>(null);
+  protected readonly cargando = signal(true);
+  protected readonly cargandoMas = signal(false);
+  protected readonly aviso = signal<string | null>(null);
+  protected readonly descargando = signal<ReadonlySet<string>>(new Set());
+
+  protected readonly vacio = computed(() => !this.cargando() && this.filas().length === 0);
+  protected readonly sinNingunComprobante = computed(() => {
+    const r = this.resumen();
+    return r !== null && r.PROCESANDO + r.ACEPTADO + r.RECHAZADO + r.ERROR_ENVIO === 0;
   });
-  protected readonly hayActualizacion = computed(() => this.actualizando().size > 0);
 
   constructor() {
-    // Los comprobantes EN PROCESO se vuelven a consultar solos, de uno en uno.
-    interval(INTERVALO_EN_PROCESO_MS)
-      .pipe(
-        exhaustMap(() => {
-          const pendiente = this.todas().find((entrada) => entrada.estado === 'PROCESANDO');
-          return pendiente ? this.refrescar(pendiente.id) : EMPTY;
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe();
+    this.cargar();
+  }
+
+  /** Trae la primera página con el filtro actual. */
+  protected cargar(): void {
+    this.cargando.set(true);
+    this.aviso.set(null);
+    this.comprobantes.listar(this.consulta(0)).subscribe((resultado) => {
+      this.cargando.set(false);
+      if (resultado.resultado === 'LISTADO') {
+        this.filas.set(resultado.pagina.comprobantes);
+        this.total.set(resultado.pagina.total);
+        this.siguiente.set(resultado.pagina.siguiente);
+        this.resumen.set(resultado.pagina.resumen);
+      } else {
+        this.aviso.set(this.textoDeFallo(resultado));
+      }
+    });
+  }
+
+  protected cargarMas(): void {
+    const desde = this.siguiente();
+    if (desde === null || this.cargandoMas()) {
+      return;
+    }
+    this.cargandoMas.set(true);
+    this.comprobantes.listar(this.consulta(desde)).subscribe((resultado) => {
+      this.cargandoMas.set(false);
+      if (resultado.resultado === 'LISTADO') {
+        this.filas.update((actuales) => [...actuales, ...resultado.pagina.comprobantes]);
+        this.total.set(resultado.pagina.total);
+        this.siguiente.set(resultado.pagina.siguiente);
+        this.resumen.set(resultado.pagina.resumen);
+      } else {
+        this.aviso.set(this.textoDeFallo(resultado));
+      }
+    });
   }
 
   protected cambiarFiltro(valor: FiltroEstado): void {
     this.filtro.set(valor);
+    this.cargar();
   }
 
   protected consultarNumero(): void {
@@ -89,70 +120,48 @@ export class ComprobantesPage {
     void this.router.navigate(['/comprobantes', id]);
   }
 
-  protected actualizar(id: string): void {
-    this.aviso.set(null);
-    this.refrescar(id).subscribe();
-  }
-
-  protected actualizarTodo(): void {
-    this.aviso.set(null);
-    from(this.todas().map((entrada) => entrada.id))
-      .pipe(
-        concatMap((id, indice) => of(id).pipe(delay(indice === 0 ? 0 : PAUSA_ENTRE_CONSULTAS_MS))),
-        concatMap((id) => this.refrescar(id)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe();
-  }
-
-  protected quitar(id: string): void {
-    this.historial.quitar(id);
-  }
-
-  protected vaciar(): void {
-    this.historial.vaciar();
+  protected descargarPdf(fila: ResumenComprobante): void {
+    const clave = `${fila.id}:pdf`;
+    this.marcarDescarga(clave, true);
+    this.comprobantes.urlDescarga(fila.id, 'pdf').subscribe((resultado) => {
+      this.marcarDescarga(clave, false);
+      if (resultado.resultado === 'LISTA') {
+        iniciarDescarga(resultado.url, resultado.nombre);
+      } else {
+        this.aviso.set(mensajeDeDescarga(resultado));
+      }
+    });
   }
 
   protected simbolo(moneda: 'PEN' | 'USD'): string {
     return moneda === 'USD' ? 'US$' : 'S/';
   }
 
-  private refrescar(id: string): Observable<ResultadoConsulta> {
-    this.marcar(id, true);
-    return this.comprobantes.consultar(id).pipe(
-      tap((resultado) => {
-        this.marcar(id, false);
-        if (resultado.resultado === 'ENCONTRADO') {
-          this.historial.registrarConsulta(resultado.comprobante);
-        } else {
-          this.aviso.set(this.textoDeAviso(id, resultado));
-        }
-      }),
-    );
+  private consulta(desde: number): { estado?: EstadoComprobante; limite: number; desde: number } {
+    const filtro = this.filtro();
+    return filtro === 'TODOS' ? { limite: FILAS_POR_PAGINA, desde } : { estado: filtro, limite: FILAS_POR_PAGINA, desde };
   }
 
-  private marcar(id: string, activo: boolean): void {
-    this.actualizando.update((actual) => {
+  private marcarDescarga(clave: string, activo: boolean): void {
+    this.descargando.update((actual) => {
       const nuevo = new Set(actual);
       if (activo) {
-        nuevo.add(id);
+        nuevo.add(clave);
       } else {
-        nuevo.delete(id);
+        nuevo.delete(clave);
       }
       return nuevo;
     });
   }
 
-  private textoDeAviso(id: string, resultado: Exclude<ResultadoConsulta, { resultado: 'ENCONTRADO' }>): string {
+  private textoDeFallo(resultado: Exclude<ResultadoListado, { resultado: 'LISTADO' }>): string {
     switch (resultado.resultado) {
-      case 'NO_EXISTE':
-        return `${id}: ya no existe en la base de datos.`;
       case 'LIMITE_PETICIONES':
         return 'Demasiadas consultas seguidas. Espera unos segundos y vuelve a intentar.';
       case 'SESION_EXPIRADA':
         return 'Tu sesión venció. Vuelve a iniciar sesión.';
       case 'SIN_CONEXION':
-        return 'No hay conexión con la API.';
+        return 'No hay conexión con la API. Revisa tu internet y que el servidor local siga encendido.';
       case 'TIEMPO_AGOTADO':
         return 'La API tardó demasiado en responder.';
       case 'ERROR':

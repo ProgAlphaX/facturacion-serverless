@@ -9,8 +9,8 @@ import { Subject, map, merge, switchMap, take, timer } from 'rxjs';
 
 import { ETIQUETA_DOCUMENTO, ETIQUETA_TIPO, ETIQUETA_UNIDAD } from '../../core/models/comprobante';
 import { ComprobanteGuardado, ResultadoConsulta, normalizarId } from '../../core/models/consulta';
+import { ETIQUETA_ARCHIVO, TIPOS_ARCHIVO, TipoArchivo, iniciarDescarga, mensajeDeDescarga } from '../../core/models/descarga';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
-import { HistorialService } from '../../core/services/historial.service';
 import { StatusPill } from '../../shared/ui/status-pill/status-pill';
 
 /** El PDF lo genera un evento de S3 unos 9 s después de aceptar el comprobante. */
@@ -26,7 +26,6 @@ const MAXIMO_REINTENTOS = 8;
 })
 export class DetallePage {
   private readonly comprobantes = inject(ComprobantesService);
-  private readonly historial = inject(HistorialService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly recargar = new Subject<void>();
   private reintentos = 0;
@@ -37,6 +36,11 @@ export class DetallePage {
   protected readonly etiquetaTipo = ETIQUETA_TIPO;
   protected readonly etiquetaDocumento = ETIQUETA_DOCUMENTO;
   protected readonly etiquetaUnidad = ETIQUETA_UNIDAD;
+
+  protected readonly tiposArchivo = TIPOS_ARCHIVO;
+  protected readonly etiquetaArchivo = ETIQUETA_ARCHIVO;
+  protected readonly descargando = signal<ReadonlySet<TipoArchivo>>(new Set());
+  protected readonly avisoDescarga = signal<string | null>(null);
 
   protected readonly cargando = signal(true);
   protected readonly resultado = signal<ResultadoConsulta | null>(null);
@@ -63,7 +67,6 @@ export class DetallePage {
         this.cargando.set(false);
         this.resultado.set(resultado);
         if (resultado.resultado === 'ENCONTRADO') {
-          this.historial.registrarConsulta(resultado.comprobante);
           this.programarSiguienteConsulta(resultado.comprobante);
         }
       });
@@ -72,6 +75,36 @@ export class DetallePage {
   protected actualizar(): void {
     this.reintentos = 0;
     this.recargar.next();
+  }
+
+  /** Pide un enlace temporal de S3 y empieza la descarga; el archivo no pasa por la web. */
+  protected descargar(tipo: TipoArchivo): void {
+    this.avisoDescarga.set(null);
+    this.marcar(tipo, true);
+    this.comprobantes.urlDescarga(normalizarId(this.id()), tipo).subscribe((resultado) => {
+      this.marcar(tipo, false);
+      if (resultado.resultado === 'LISTA') {
+        iniciarDescarga(resultado.url, resultado.nombre);
+      } else {
+        this.avisoDescarga.set(mensajeDeDescarga(resultado));
+      }
+    });
+  }
+
+  protected claveDe(c: ComprobanteGuardado, tipo: TipoArchivo): string | undefined {
+    return c.archivos?.[tipo];
+  }
+
+  private marcar(tipo: TipoArchivo, activo: boolean): void {
+    this.descargando.update((actual) => {
+      const nuevo = new Set(actual);
+      if (activo) {
+        nuevo.add(tipo);
+      } else {
+        nuevo.delete(tipo);
+      }
+      return nuevo;
+    });
   }
 
   protected importe(cantidad: number, valorUnitario: number): number {

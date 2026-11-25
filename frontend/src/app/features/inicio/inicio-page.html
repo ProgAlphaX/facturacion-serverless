@@ -1,12 +1,24 @@
 <h1>Inicio</h1>
 <p class="subtitulo">Facturación electrónica serverless: emitir y consultar comprobantes de SUNAT.</p>
 
-<section class="tarjetas" aria-label="Resumen de lo emitido desde esta web">
+@if (aviso(); as mensaje) {
+  <p class="aviso" role="alert">
+    <mat-icon fontSet="material-symbols-rounded">warning</mat-icon>
+    {{ mensaje }}
+    <button mat-button type="button" (click)="cargar()">Reintentar</button>
+  </p>
+}
+
+<section class="tarjetas" aria-label="Resumen de comprobantes">
   @for (tarjeta of tarjetas(); track tarjeta.etiqueta) {
     <article class="fn-card tarjeta">
       <p class="valor" [style.color]="tarjeta.color">{{ tarjeta.valor }}</p>
       <p class="etiqueta">{{ tarjeta.etiqueta }}</p>
     </article>
+  } @empty {
+    @if (cargando()) {
+      <p class="nota">Cargando el resumen…</p>
+    }
   }
 </section>
 
@@ -21,4 +33,4 @@
   </a>
 </section>
 
-<p class="nota">Los números cuentan lo emitido desde esta web, en este navegador.</p>
+<p class="nota">Los números cuentan todos los comprobantes del emisor guardados en AWS.</p>

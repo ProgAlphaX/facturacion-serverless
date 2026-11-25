@@ -148,3 +148,23 @@ th {
     transform: rotate(360deg);
   }
 }
+
+.conteo {
+  margin: 0;
+  color: var(--fn-ink-3);
+  font-size: 13px;
+}
+
+.cargando {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+  color: var(--fn-ink-3);
+}
+
+.mas {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+}

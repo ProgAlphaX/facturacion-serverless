@@ -1,11 +1,11 @@
 <header class="cabecera">
   <div>
     <h1>Comprobantes</h1>
-    <p class="subtitulo">Lo que emitiste desde esta web. Para ver otro, consúltalo por su número.</p>
+    <p class="subtitulo">Todo lo emitido, desde cualquier origen (la web, Postman o los scripts).</p>
   </div>
-  <button mat-stroked-button type="button" [disabled]="todas().length === 0 || hayActualizacion()" (click)="actualizarTodo()">
-    <mat-icon fontSet="material-symbols-rounded">refresh</mat-icon>
-    Actualizar estados
+  <button mat-stroked-button type="button" [disabled]="cargando()" (click)="cargar()">
+    <mat-icon fontSet="material-symbols-rounded" [class.girando]="cargando()">refresh</mat-icon>
+    Actualizar
   </button>
 </header>
 
@@ -36,24 +36,31 @@
       <mat-select [value]="filtro()" (selectionChange)="cambiarFiltro($event.value)">
         <mat-option value="TODOS">Todos</mat-option>
         @for (estado of estados; track estado) {
-          <mat-option [value]="estado">{{ etiquetaEstado[estado] }}</mat-option>
+          <mat-option [value]="estado">
+            {{ etiquetaEstado[estado] }}@if (resumen(); as conteo) { ({{ conteo[estado] }}) }
+          </mat-option>
         }
       </mat-select>
     </mat-form-field>
-    @if (todas().length > 0) {
-      <button mat-button type="button" (click)="vaciar()">Vaciar historial</button>
+    @if (!cargando() && filas().length > 0) {
+      <p class="conteo">Mostrando {{ filas().length }} de {{ total() }}</p>
     }
   </div>
 
-  @if (todas().length === 0) {
+  @if (cargando()) {
+    <p class="cargando"><mat-spinner diameter="24" /> Cargando comprobantes…</p>
+  } @else if (vacio()) {
     <div class="vacio">
       <mat-icon fontSet="material-symbols-rounded">receipt_long</mat-icon>
-      <h2>Aún no emitiste comprobantes desde esta web</h2>
-      <p>Emite uno en Facturar, o consulta uno por su número arriba.</p>
-      <a mat-flat-button routerLink="/facturar">Ir a Facturar</a>
+      @if (sinNingunComprobante()) {
+        <h2>Todavía no hay comprobantes</h2>
+        <p>Emite uno en Facturar y aparecerá aquí.</p>
+        <a mat-flat-button routerLink="/facturar">Ir a Facturar</a>
+      } @else {
+        <h2>No hay comprobantes con ese estado</h2>
+        <p>Prueba con otro filtro.</p>
+      }
     </div>
-  } @else if (filas().length === 0) {
-    <p class="vacio-filtro">No hay comprobantes con ese estado.</p>
   } @else {
     <div class="tabla-envoltorio">
       <table>
@@ -84,14 +91,12 @@
                 <button
                   mat-icon-button
                   type="button"
-                  [disabled]="actualizando().has(fila.id)"
-                  [attr.aria-label]="'Actualizar el estado de ' + fila.id"
-                  (click)="actualizar(fila.id)"
+                  [disabled]="!fila.tienePdf || descargando().has(fila.id + ':pdf')"
+                  [attr.aria-label]="fila.tienePdf ? 'Descargar el PDF de ' + fila.id : 'Sin PDF para ' + fila.id"
+                  [attr.title]="fila.tienePdf ? 'Descargar PDF' : 'Este comprobante no tiene PDF'"
+                  (click)="descargarPdf(fila)"
                 >
-                  <mat-icon fontSet="material-symbols-rounded" [class.girando]="actualizando().has(fila.id)">refresh</mat-icon>
-                </button>
-                <button mat-icon-button type="button" [attr.aria-label]="'Quitar ' + fila.id + ' del historial'" (click)="quitar(fila.id)">
-                  <mat-icon fontSet="material-symbols-rounded">delete</mat-icon>
+                  <mat-icon fontSet="material-symbols-rounded">picture_as_pdf</mat-icon>
                 </button>
               </td>
             </tr>
@@ -99,5 +104,16 @@
         </tbody>
       </table>
     </div>
+    @if (siguiente() !== null) {
+      <div class="mas">
+        <button mat-stroked-button type="button" [disabled]="cargandoMas()" (click)="cargarMas()">
+          @if (cargandoMas()) {
+            <mat-spinner diameter="20" />
+          } @else {
+            Cargar más
+          }
+        </button>
+      </div>
+    }
   }
 </section>

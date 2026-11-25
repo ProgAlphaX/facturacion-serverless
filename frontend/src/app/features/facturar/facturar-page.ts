@@ -28,7 +28,6 @@ import {
 import { ResultadoEmision } from '../../core/models/emision';
 import { agruparPorCampo, hoyEnLima, validarBorrador } from '../../core/reglas/reglas-comprobante';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
-import { HistorialService } from '../../core/services/historial.service';
 import { ValorFormulario, aComprobante } from './borrador';
 import { ResultadoEmisionCard } from './resultado-emision';
 
@@ -74,7 +73,6 @@ function crearItem(fb: NonNullableFormBuilder, item?: ItemComprobante): GrupoIte
 export class FacturarPage {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly comprobantes = inject(ComprobantesService);
-  private readonly historial = inject(HistorialService);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly tipos = Object.entries(ETIQUETA_TIPO) as readonly [TipoComprobante, string][];
@@ -183,11 +181,9 @@ export class FacturarPage {
     this.enviando.set(true);
     this.resultado.set(null);
     this.erroresServidor.set([]);
-    const enviado = this.comprobante();
-    this.comprobantes.emitir(enviado).subscribe((resultado) => {
+    this.comprobantes.emitir(this.comprobante()).subscribe((resultado) => {
       this.enviando.set(false);
       this.resultado.set(resultado);
-      this.historial.registrarEmision(enviado, resultado);
       if (resultado.resultado === 'INVALIDO') {
         this.erroresServidor.set(resultado.errores);
       } else if (resultado.resultado === 'LIMITE_PETICIONES') {
