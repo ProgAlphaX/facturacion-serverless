@@ -103,6 +103,29 @@ functions:
         Action: dynamodb:GetItem
         Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
 
+  listar-comprobantes:
+    handler: src/listar-comprobantes.handler
+    description: Lista los comprobantes del emisor con filtro por estado y paginación (GET /comprobantes)
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:Query
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  descargar-archivo:
+    handler: src/descargar-archivo.handler
+    description: Devuelve una URL temporal de S3 para el XML, CDR o PDF de un comprobante (GET /comprobantes/{id}/archivos/{tipo})
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+      # Solo lectura de las tres carpetas de archivos del comprobante
+      - Effect: Allow
+        Action: s3:GetObject
+        Resource:
+          - arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/firmados/*
+          - arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/cdr/*
+          - arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/pdf/*
+
   pdf-automatico:
     handler: src/pdf-desde-s3.handler
     description: Genera pdf/<id>.pdf cuando llega el CDR a S3 (solo si el comprobante fue ACEPTADO)
@@ -454,6 +477,21 @@ resources:
         ParentId: !Ref RecursoComprobantes
         PathPart: '{id}'
 
+    # /comprobantes/{id}/archivos/{tipo}: descarga de los archivos de un comprobante
+    RecursoArchivos:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !Ref RecursoComprobanteId
+        PathPart: archivos
+
+    RecursoArchivoTipo:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !Ref RecursoArchivos
+        PathPart: '{tipo}'
+
     ValidadorCuerpo:
       Type: AWS::ApiGateway::RequestValidator
       Properties:
@@ -556,10 +594,56 @@ resources:
         Principal: apigateway.amazonaws.com
         SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes/*'
 
+    # GET /comprobantes → lista paginada del emisor (misma protección: JWT + API key + plan de uso)
+    MetodoListar:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoComprobantes
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListarDashcomprobantesLambdaFunction.Arn}/invocations'
+
+    PermisoApiListar:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref ListarDashcomprobantesLambdaFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes'
+
+    # GET /comprobantes/{id}/archivos/{tipo} → URL temporal de S3
+    MetodoDescargar:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoArchivoTipo
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DescargarDasharchivoLambdaFunction.Arn}/invocations'
+
+    PermisoApiDescargar:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref DescargarDasharchivoLambdaFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes/*/archivos/*'
+
     # El plugin plugins/version-api.js le agrega un sufijo según el contenido de la API, para que API Gateway publique cada cambio
     DespliegueApi:
       Type: AWS::ApiGateway::Deployment
-      DependsOn: [MetodoEmitir, MetodoConsultar]
+      DependsOn: [MetodoEmitir, MetodoConsultar, MetodoListar, MetodoDescargar]
       Properties:
         RestApiId: !Ref ApiFacturacion
 

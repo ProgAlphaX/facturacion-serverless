@@ -5,7 +5,7 @@ module.exports = async ({ resolveVariable }) => {
   const cuenta = await resolveVariable('aws:accountId');
   const etapa = await resolveVariable('sls:stage');
 
-  const funciones = ['validar', 'generar-xml', 'firmar', 'enviar-sunat', 'guardar-resultado', 'generar-pdf', 'pdf-automatico', 'consultar-comprobante']
+  const funciones = ['validar', 'generar-xml', 'firmar', 'enviar-sunat', 'guardar-resultado', 'generar-pdf', 'pdf-automatico', 'consultar-comprobante', 'listar-comprobantes', 'descargar-archivo']
     .map((nombre) => `fe-serverless-${etapa}-${nombre}`);
   const maquina = `arn:aws:states:${region}:${cuenta}:stateMachine:fe-${etapa}-emitir-comprobante`;
   const api = [['ApiName', `fe-${etapa}-facturacion`, 'Stage', etapa]].flat();
