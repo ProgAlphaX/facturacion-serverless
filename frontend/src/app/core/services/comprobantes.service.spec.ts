@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { entorno } from '../config/entorno';
 import { crearEjemplo } from '../ejemplos/ejemplos-comprobante';
+import { ResultadoConsulta } from '../models/consulta';
 import { ResultadoEmision } from '../models/emision';
 import { ComprobantesService } from './comprobantes.service';
 
@@ -60,5 +61,31 @@ describe('ComprobantesService.emitir', () => {
     emitir();
     http.expectOne(RUTA).error(new ProgressEvent('error'));
     expect(resultado).toEqual({ resultado: 'SIN_CONEXION' });
+  });
+});
+
+describe('ComprobantesService.consultar', () => {
+  let servicio: ComprobantesService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    servicio = TestBed.inject(ComprobantesService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    http.verify();
+  });
+
+  it('pide el comprobante por su número y traduce un 404 sin lanzar error', () => {
+    let resultado: ResultadoConsulta | undefined;
+    servicio.consultar('20000000001-01-F001-00000001').subscribe((r) => {
+      resultado = r;
+    });
+    const peticion = http.expectOne(`${entorno.apiBase}/comprobantes/20000000001-01-F001-00000001`);
+    expect(peticion.request.method).toBe('GET');
+    peticion.flush({ error: 'No existe el comprobante' }, { status: 404, statusText: 'Not Found' });
+    expect(resultado).toEqual({ resultado: 'NO_EXISTE', mensaje: 'No existe el comprobante' });
   });
 });

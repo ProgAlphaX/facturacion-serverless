@@ -17,9 +17,9 @@ export type ResultadoEmision =
 
 type Registro = Readonly<Record<string, unknown>>;
 
-const esRegistro = (valor: unknown): valor is Registro => typeof valor === 'object' && valor !== null && !Array.isArray(valor);
+export const esRegistro = (valor: unknown): valor is Registro => typeof valor === 'object' && valor !== null && !Array.isArray(valor);
 
-function leerCdr(valor: unknown): CdrResumen | null {
+export function leerCdr(valor: unknown): CdrResumen | null {
   if (!esRegistro(valor) || typeof valor['codigo'] !== 'string' || typeof valor['descripcion'] !== 'string') {
     return null;
   }
