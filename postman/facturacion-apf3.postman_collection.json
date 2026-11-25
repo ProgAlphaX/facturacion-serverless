@@ -65,6 +65,7 @@
             "type": "text/javascript",
             "exec": [
               "const r = pm.response.json();",
+              "if (r.estado === 'ACEPTADO') pm.collectionVariables.set('idFacturaAceptada', r.id);",
               "pm.test('responde 201', () => pm.response.to.have.status(201));",
               "pm.test('SUNAT la acepta (CDR 0)', () => {",
               "  pm.expect(r.estado).to.eql('ACEPTADO');",
@@ -404,7 +405,98 @@
       }
     },
     {
-      "name": "12 – Ráfaga de 60 peticiones (404 o 429)",
+      "name": "12 – Listar comprobantes (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test('responde 200 con la página, el total y el resumen por estado', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(r.comprobantes).to.be.an('array');",
+              "  pm.expect(r).to.include.keys('total', 'siguiente', 'resumen');",
+              "  pm.expect(r.resumen).to.include.keys('ACEPTADO', 'RECHAZADO', 'ERROR_ENVIO', 'PROCESANDO');",
+              "});",
+              "pm.test('la factura emitida en la solicitud 02 aparece entre las más nuevas', () => {",
+              "  pm.expect(r.comprobantes.map((c) => c.id)).to.include(pm.collectionVariables.get('idFacturaAceptada'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/comprobantes?limite=100"
+      }
+    },
+    {
+      "name": "13 – Listar con estado inválido (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/comprobantes?estado=INVENTADO"
+      }
+    },
+    {
+      "name": "14 – Descargar el PDF (URL temporal)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test('responde 200 con una URL temporal que vence en 300 s', () => {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(r.url).to.match(/^https:\\/\\/.+X-Amz-Signature=/);",
+              "  pm.expect(r.expiraEnSegundos).to.eql(300);",
+              "});",
+              "pm.sendRequest(r.url, (err, res) => pm.test('la URL entrega un PDF', () => {",
+              "  pm.expect(err).to.eql(null);",
+              "  pm.expect(res.code).to.eql(200);",
+              "  pm.expect(res.text().startsWith('%PDF')).to.eql(true);",
+              "}));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/comprobantes/{{idFacturaAceptada}}/archivos/pdf"
+      }
+    },
+    {
+      "name": "15 – Descargar un tipo de archivo inválido (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('responde 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/comprobantes/{{idFacturaAceptada}}/archivos/exe"
+      }
+    },
+    {
+      "name": "16 – Ráfaga de 60 peticiones (404 o 429)",
       "event": [
         {
           "listen": "test",
