@@ -18,7 +18,10 @@
         <dt>Huella (hash)</dt>
         <dd class="hash">{{ r.hash }}</dd>
       </dl>
-      <button mat-stroked-button type="button" (click)="otroComprobante.emit()">Emitir otro comprobante</button>
+      <div class="acciones">
+        <a mat-flat-button [routerLink]="['/comprobantes', r.id]">Ver detalle</a>
+        <button mat-stroked-button type="button" (click)="otroComprobante.emit()">Emitir otro comprobante</button>
+      </div>
     </section>
   }
   @case ('RECHAZADO') {
@@ -35,7 +38,10 @@
           <dd>{{ observacion }}</dd>
         }
       </dl>
-      <button mat-stroked-button type="button" (click)="otroComprobante.emit()">Emitir otro comprobante</button>
+      <div class="acciones">
+        <a mat-flat-button [routerLink]="['/comprobantes', r.id]">Ver detalle</a>
+        <button mat-stroked-button type="button" (click)="otroComprobante.emit()">Emitir otro comprobante</button>
+      </div>
     </section>
   }
   @case ('INVALIDO') {
@@ -60,6 +66,7 @@
     <section class="tarjeta envio" role="alert">
       <h3><mat-icon fontSet="material-symbols-rounded">cloud_off</mat-icon> No se pudo enviar a SUNAT</h3>
       <p>El comprobante quedó guardado con el número {{ r.id }} y se puede reenviar más tarde.</p>
+      <a mat-flat-button [routerLink]="['/comprobantes', r.id]">Ver detalle</a>
     </section>
   }
   @case ('LIMITE_PETICIONES') {

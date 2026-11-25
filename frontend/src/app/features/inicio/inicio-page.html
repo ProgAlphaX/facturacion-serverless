@@ -1,11 +1,24 @@
 <h1>Inicio</h1>
 <p class="subtitulo">Facturación electrónica serverless: emitir y consultar comprobantes de SUNAT.</p>
 
-<section class="fn-card tarjeta">
-  <h2>Estados de un comprobante</h2>
-  <div class="estados">
-    @for (estado of estados; track estado) {
-      <fn-status-pill [estado]="estado" />
-    }
-  </div>
+<section class="tarjetas" aria-label="Resumen de lo emitido desde esta web">
+  @for (tarjeta of tarjetas(); track tarjeta.etiqueta) {
+    <article class="fn-card tarjeta">
+      <p class="valor" [style.color]="tarjeta.color">{{ tarjeta.valor }}</p>
+      <p class="etiqueta">{{ tarjeta.etiqueta }}</p>
+    </article>
+  }
 </section>
+
+<section class="acciones">
+  <a mat-flat-button routerLink="/facturar">
+    <mat-icon fontSet="material-symbols-rounded">receipt_long</mat-icon>
+    Emitir un comprobante
+  </a>
+  <a mat-stroked-button routerLink="/comprobantes">
+    <mat-icon fontSet="material-symbols-rounded">folder_open</mat-icon>
+    Ver comprobantes
+  </a>
+</section>
+
+<p class="nota">Los números cuentan lo emitido desde esta web, en este navegador.</p>

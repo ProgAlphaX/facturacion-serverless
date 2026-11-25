@@ -8,18 +8,40 @@ h1 {
   color: var(--fn-ink-3);
 }
 
+.tarjetas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  max-width: 960px;
+}
+
 .tarjeta {
-  max-width: 560px;
   padding: 20px;
 }
 
-h2 {
-  margin-bottom: 14px;
-  font-size: 16px;
+.valor {
+  margin: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.1;
 }
 
-.estados {
+.etiqueta {
+  margin: 4px 0 0;
+  color: var(--fn-ink-3);
+  font-weight: 600;
+}
+
+.acciones {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.nota {
+  margin: 16px 0 0;
+  color: var(--fn-ink-3);
+  font-size: 13px;
 }
