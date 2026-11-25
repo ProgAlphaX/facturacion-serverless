@@ -1,0 +1,94 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+
+  @include mat.theme((
+    color: (
+      primary: mat.$red-palette,
+      tertiary: mat.$violet-palette,
+      theme-type: light,
+    ),
+    typography: (
+      plain-family: 'Nunito Sans',
+      brand-family: 'Nunito',
+    ),
+    density: 0,
+  ));
+
+  @include mat.sidenav-overrides((
+    container-shape: 0,
+  ));
+
+  @include mat.button-overrides((
+    filled-container-color: #c8102e,
+    filled-label-text-color: #ffffff,
+    outlined-label-text-color: #c8102e,
+    text-label-text-color: #c8102e,
+  ));
+}
+
+:root {
+  --fn-brand: #c8102e;
+  --fn-paper: #f3f4f6;
+  --fn-surface: #ffffff;
+  --fn-line: #e5e7eb;
+  --fn-ink: #12161f;
+  --fn-ink-2: #1f2937;
+  --fn-ink-3: #6b7280;
+
+  --fn-aceptado: #15803d;
+  --fn-rechazado: #c8102e;
+  --fn-proceso: #f59e0b;
+  --fn-error-envio: #6d28d9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--fn-paper);
+  color: var(--fn-ink);
+  font-family: 'Nunito Sans', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Nunito', system-ui, sans-serif;
+  margin: 0;
+}
+
+.material-symbols-rounded {
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+.fn-card {
+  background: var(--fn-surface);
+  border: 1px solid var(--fn-line);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(18, 22, 31, 0.05);
+}
+
+:focus-visible {
+  outline: 3px solid var(--fn-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
