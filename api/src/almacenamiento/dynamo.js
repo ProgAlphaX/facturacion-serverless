@@ -7,6 +7,10 @@ const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand, QueryComm
 // Tope de seguridad: una consulta nunca trae más registros que estos aunque la tabla crezca.
 const MAXIMO_REGISTROS_POR_CONSULTA = 2000;
 const ESTADOS = ['PROCESANDO', 'ACEPTADO', 'RECHAZADO', 'ERROR_ENVIO'];
+const CAMPOS_RESUMEN = [
+  'id', 'tipo', 'serie', 'numero', 'estado', 'cliente', 'nombre', 'moneda', 'totales', 'total',
+  'fechaEmision', 'creadoEn', 'actualizadoEn', 'archivos', 'pdf',
+];
 
 const FORMATO_ID = /^(\d{11})-(01|03)-([A-Z0-9]{4})-(\d{8})$/;
 
@@ -75,7 +79,9 @@ function crearRepositorio({ tabla, cliente }) {
         TableName: tabla,
         KeyConditionExpression: 'pk = :pk',
         ExpressionAttributeValues: { ':pk': `EMISOR#${ruc}` },
-        ProjectionExpression: 'id, tipo, serie, numero, estado, cliente.nombre, moneda, totales.total, fechaEmision, creadoEn, actualizadoEn, archivos.pdf',
+        // Alias para todos los nombres: "total", "tipo" y otros son palabras reservadas de DynamoDB.
+        ProjectionExpression: '#id, #tipo, #serie, #numero, #estado, #cliente.#nombre, #moneda, #totales.#total, #fechaEmision, #creadoEn, #actualizadoEn, #archivos.#pdf',
+        ExpressionAttributeNames: Object.fromEntries(CAMPOS_RESUMEN.map((campo) => [`#${campo}`, campo])),
         ExclusiveStartKey: siguienteClave,
       }));
       registros.push(...Items);

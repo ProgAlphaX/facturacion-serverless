@@ -30,7 +30,24 @@ function clienteConPaginas(...paginas) {
   };
 }
 
+// DynamoDB rechaza (ValidationException) cualquier nombre reservado escrito directo en una expresión.
+// Esta lista incluye los que dieron problemas o pueden darlos en este esquema.
+const RESERVADAS = ['TOTAL', 'TYPE', 'NAME', 'STATUS', 'ID', 'NUMBER'];
+
 describe('repositorio.listar', () => {
+  test('todos los nombres de la proyección van con alias, porque "total" es palabra reservada de DynamoDB', async () => {
+    const cliente = clienteConPaginas([]);
+    await crearRepositorio({ tabla: 'T', cliente }).listar({ ruc: '20000000001', limite: 50, desde: 0 });
+
+    const { ProjectionExpression, ExpressionAttributeNames } = cliente.enviados[0];
+    const nombresSinAlias = ProjectionExpression.split(/[,.]/).map((n) => n.trim()).filter((n) => !n.startsWith('#'));
+    expect(nombresSinAlias).toEqual([]);
+    for (const alias of ProjectionExpression.match(/#\w+/g)) {
+      expect(ExpressionAttributeNames).toHaveProperty([alias]);
+    }
+    expect(Object.values(ExpressionAttributeNames).map((n) => n.toUpperCase()).filter((n) => RESERVADAS.includes(n)).length).toBeGreaterThan(0);
+  });
+
   test('consulta por emisor, proyecta solo el resumen y ordena del más nuevo al más antiguo', async () => {
     const cliente = clienteConPaginas([
       registro(1, 'ACEPTADO', '2026-11-24T10:00:00Z'),
