@@ -48,7 +48,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
 
-  private readonly estado = signal<Sesion | null>(leerSesionGuardada());
+  protected readonly estado = signal<Sesion | null>(leerSesionGuardada());
   /** Evita que varias llamadas simultáneas renueven el token a la vez. */
   private renovacionEnCurso: Observable<Sesion> | null = null;
 
@@ -123,13 +123,13 @@ export class AuthService {
     );
   }
 
-  private crearSesion(usuario: string, idToken: string, refreshToken: string, expiraEnSegundos: number): Sesion {
+  protected crearSesion(usuario: string, idToken: string, refreshToken: string, expiraEnSegundos: number): Sesion {
     const exp = leerPayload(idToken)?.exp;
     const expiraEn = exp !== undefined ? exp * 1000 : Date.now() + expiraEnSegundos * 1000;
     return { usuario, idToken, refreshToken, expiraEn };
   }
 
-  private guardar(sesion: Sesion): void {
+  protected guardar(sesion: Sesion): void {
     this.estado.set(sesion);
     sessionStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
   }

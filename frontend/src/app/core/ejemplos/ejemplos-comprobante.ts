@@ -10,7 +10,9 @@ export type ClaveEjemplo =
   | 'serie-incorrecta'
   | 'boleta-sin-dni'
   | 'fecha-futura'
-  | 'cantidad-cero';
+  | 'cantidad-cero'
+  | 'sunat-caida'
+  | 'limite-peticiones';
 
 export interface InfoEjemplo {
   readonly clave: ClaveEjemplo;
@@ -29,6 +31,12 @@ export const EJEMPLOS: readonly InfoEjemplo[] = [
   { clave: 'boleta-sin-dni', etiqueta: 'Boleta mayor a S/ 700 sin DNI', esperado: '400 INVALIDO (R08)' },
   { clave: 'fecha-futura', etiqueta: 'Fecha de emisión futura', esperado: '400 INVALIDO (R04)' },
   { clave: 'cantidad-cero', etiqueta: 'Ítem con cantidad 0', esperado: '400 INVALIDO (R09)' },
+];
+
+/** Casos que solo se pueden provocar en el modo demo (el backend real no los produce a pedido). */
+export const EJEMPLOS_DEMO: readonly InfoEjemplo[] = [
+  { clave: 'sunat-caida', etiqueta: 'SUNAT caída (solo demo)', esperado: '502 ERROR_ENVIO tras esperar' },
+  { clave: 'limite-peticiones', etiqueta: 'Demasiadas peticiones (solo demo)', esperado: '429' },
 ];
 
 const CLIENTE_FACTURA = { tipoDoc: '6', numDoc: '20100070970', nombre: 'CLIENTE DEMO S.A.' } as const;
@@ -96,6 +104,10 @@ export function crearEjemplo(clave: ClaveEjemplo, hoy: string, numero: number): 
     }
     case 'fecha-futura':
       return { ...base, fechaEmision: sumarDias(hoy, 4) };
+    case 'sunat-caida':
+      return { ...base, cliente: { ...CLIENTE_FACTURA, nombre: 'SUNAT CAIDA S.A.' } };
+    case 'limite-peticiones':
+      return { ...base, cliente: { ...CLIENTE_FACTURA, nombre: 'LIMITE DE PETICIONES S.A.' } };
     case 'cantidad-cero': {
       const items = [{ descripcion: 'Servicio de consultoría', unidad: 'ZZ', cantidad: 0, valorUnitario: 100 }] as const;
       return { ...base, items, totales: calcularTotales(items) };
