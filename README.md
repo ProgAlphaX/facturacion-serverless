@@ -30,7 +30,7 @@ flowchart LR
 | `infra/terraform/`       | Infraestructura como código: red, DynamoDB, S3, EC2                                        |
 | `postman/`               | Colección de pruebas de la API                                                             |
 | `ejemplos/`              | Comprobantes de ejemplo (válidos e inválidos) y catálogos SUNAT                            |
-| `scripts/`               | `encender.ps1` / `apagar.ps1` (NAT + EC2 bajo demanda) y `probar-api.sh` (pruebas de humo) |
+| `scripts/`               | `encender.ps1` / `apagar.ps1` (NAT + EC2 bajo demanda), `probar-api.sh` y `preparar-web.ps1` / `apagar-web.ps1` (backend de la web) |
 | `docker-compose.yml`     | Entorno local completo: API, SUNAT simulada, DynamoDB local y S3 local                     |
 | `docker-compose.aws.yml` | Versión para la EC2: API y SUNAT simulada con DynamoDB y S3 reales                         |
 | `serverless/`            | APF3: Lambdas, Step Functions, API Gateway, Cognito y CloudWatch (Serverless Framework)    |
@@ -56,7 +56,7 @@ flowchart LR
 | Web 4    | Pantalla Facturar con reglas en vivo y ejemplos      | ✅     |
 | Web 5    | Consulta de comprobantes e historial local           | ✅     |
 | Web 6    | Listado y descargas desde AWS (2 rutas y 2 Lambdas nuevas) | ✅ |
-| Web 7    | Modo demo, ensayo y cierre                           | ⏳     |
+| Web 7    | Modo demo, scripts de encender/apagar, ensayo y cierre | ✅   |
 
 ## Requisitos
 
@@ -300,14 +300,22 @@ flowchart LR
 | Detalle | Datos, respuesta de SUNAT y descarga del XML, el CDR y el PDF (enlace temporal de S3) |
 
 ```powershell
-# Con la pila del APF3 desplegada y el usuario de Cognito creado (ver sección anterior)
+# Con AWS: un solo comando despliega la pila, crea el usuario de Cognito y escribe frontend/.env.local
+./scripts/preparar-web.ps1          # pide la contraseña del usuario (no se guarda)
 cd frontend
 npm ci
-Copy-Item .env.example .env.local   # completar API_URL, COGNITO_CLIENT_ID y API_KEY
 npm start                           # http://localhost:4200
+
+# Sin AWS (datos simulados, sirve para mostrar la web con todo apagado)
+npm run start:demo                  # entra con cualquier usuario y contraseña
+
+# Al terminar: elimina la pila y comprueba que no quede nada que cobre por hora
+cd ..; ./scripts/apagar-web.ps1
 ```
 
-Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 77 pruebas (`npm test -- --watch=false`); el backend tiene 115 (`npm test` en `api/`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
+El **modo demo** muestra una etiqueta «MODO DEMO», trae 12 comprobantes de muestra y responde igual que el backend real (mismas reglas, estados y errores). Dos ejemplos solo de demo provocan una caída de SUNAT y un 429, que con AWS no se pueden pedir a voluntad.
+
+Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 95 pruebas (`npm test -- --watch=false`); el backend tiene 115 (`npm test` en `api/`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
 
 ## Integrantes
 

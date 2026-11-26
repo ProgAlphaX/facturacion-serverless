@@ -25,6 +25,18 @@ flowchart LR
 - **La llave de API no está en el código de la web:** la agrega el proxy leyéndola de `.env.local`.
 - **Login directo a Cognito** con `USER_PASSWORD_AUTH` (el cliente del APF3 ya lo permite). El ID token se renueva solo si está por vencer o ante un 401.
 
+## Modo demo (sin AWS)
+
+`npm run start:demo` levanta la web con servicios simulados: no necesita `.env.local`, ni la pila desplegada, ni internet. Sirve para mostrar la interfaz aunque todo esté apagado.
+
+- Entra con **cualquier** usuario y contraseña; verás la etiqueta «MODO DEMO» en el login y en la barra superior.
+- Trae 12 comprobantes de muestra (aceptados, rechazados y uno con error de envío) con fechas recientes.
+- `ComprobantesDemoService` aplica las mismas reglas que el backend (R01–R11), detecta duplicados (R12), rechaza un cliente con RUC inactivo (`20123456786`, CDR 2017) y hace aparecer el PDF unos segundos después de aceptar.
+- Los archivos que se descargan son reales: un PDF bien formado, un XML y un CDR de ejemplo.
+- Dos ejemplos del menú solo existen en la demo: **SUNAT caída** (error de envío tras unos segundos) y **Demasiadas peticiones** (429).
+
+La demo se elige al generar la configuración (`FN_DEMO=1`); `npm start` y `npm run build` vuelven siempre al modo real.
+
 ## Requisitos
 
 - Node.js 22 o superior.
@@ -39,7 +51,7 @@ Copy-Item .env.example .env.local   # y completa los valores (ver abajo)
 npm start                           # http://localhost:4200
 ```
 
-`.env.local` necesita `API_URL`, `COGNITO_REGION`, `COGNITO_CLIENT_ID` y `API_KEY` (el archivo `.env.example` indica de dónde sale cada uno). Está ignorado por git. `npm start` genera `src/app/core/config/entorno.generado.ts` con los datos que **no** son secretos (región y cliente de Cognito); ese archivo tampoco se sube.
+El script `./scripts/preparar-web.ps1` (en la raíz del repositorio) hace estos pasos por ti: despliega la pila, crea el usuario de Cognito con la contraseña que le indiques y escribe `.env.local`. Para hacerlo a mano, `.env.local` necesita `API_URL`, `COGNITO_REGION`, `COGNITO_CLIENT_ID` y `API_KEY` (el archivo `.env.example` indica de dónde sale cada uno). Está ignorado por git. `npm start` genera `src/app/core/config/entorno.generado.ts` con los datos que **no** son secretos (región y cliente de Cognito); ese archivo tampoco se sube.
 
 > Cada `serverless deploy` crea una llave de API nueva: actualiza `API_KEY` y reinicia `npm start`.
 
@@ -77,6 +89,6 @@ src/app/
 - Los enlaces de descarga duran 5 minutos: mientras no venzan, quien tenga el enlace puede bajar ese archivo sin iniciar sesión, por eso la web no los guarda.
 - R06 (RUC del emisor) y R12 (duplicados) solo las decide AWS; R10 y R11 no se pueden provocar desde la pantalla porque los totales se calculan solos.
 
-## Costo
+## Costo y apagado
 
-Mientras la pila serverless está encendida solo se paga por uso. Al terminar: `npx serverless remove` en `serverless/`.
+Mientras la pila serverless está encendida solo se paga por uso (centavos al día de pruebas); no hay NAT, EC2 ni IP elástica. Al terminar: `./scripts/apagar-web.ps1` elimina la pila y comprueba que no quede nada que cobre por hora. Los datos (DynamoDB, S3, SSM) los conserva Terraform; el usuario de Cognito y la llave de API se eliminan con la pila y `preparar-web.ps1` los vuelve a crear.
