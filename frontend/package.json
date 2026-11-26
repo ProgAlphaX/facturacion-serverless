@@ -13,7 +13,8 @@
     "prebuild": "npm run entorno",
     "prelint": "npm run entorno",
     "pretest": "npm run entorno",
-    "typecheck": "npm run entorno && tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.spec.json --noEmit"
+    "typecheck": "npm run entorno && tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.spec.json --noEmit",
+    "start:demo": "node scripts/iniciar-demo.cjs"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

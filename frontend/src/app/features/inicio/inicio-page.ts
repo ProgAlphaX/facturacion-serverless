@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
+import { entorno } from '../../core/config/entorno';
 import { ConteoPorEstado } from '../../core/models/listado';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
 
@@ -22,6 +23,7 @@ interface Tarjeta {
 export class InicioPage {
   private readonly comprobantes = inject(ComprobantesService);
 
+  protected readonly modoDemo = entorno.modoDemo;
   protected readonly resumen = signal<ConteoPorEstado | null>(null);
   protected readonly cargando = signal(true);
   protected readonly aviso = signal<string | null>(null);

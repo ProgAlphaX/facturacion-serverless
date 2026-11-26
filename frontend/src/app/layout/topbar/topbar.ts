@@ -2,13 +2,19 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
+import { entorno } from '../../core/config/entorno';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'fn-topbar',
   imports: [MatButtonModule, MatIconModule],
   template: `
-    <span class="entorno">Entorno de desarrollo · API de AWS (us-east-1)</span>
+    @if (modoDemo) {
+      <span class="demo" role="status">MODO DEMO</span>
+      <span class="entorno">Datos simulados: no se llama a AWS</span>
+    } @else {
+      <span class="entorno">Entorno de desarrollo · API de AWS (us-east-1)</span>
+    }
     <span class="usuario">
       <mat-icon fontSet="material-symbols-rounded">account_circle</mat-icon>
       {{ auth.usuario() }}
@@ -23,4 +29,5 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class Topbar {
   protected readonly auth = inject(AuthService);
+  protected readonly modoDemo = entorno.modoDemo;
 }

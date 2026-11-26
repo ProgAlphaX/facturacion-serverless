@@ -6,6 +6,8 @@ export interface Entorno {
   readonly apiBase: string;
   readonly cognitoRegion: string;
   readonly cognitoClienteId: string;
+  /** Con `npm run start:demo` la web usa datos simulados y no llama a AWS. */
+  readonly modoDemo: boolean;
 }
 
 export const entorno: Entorno = ENTORNO_GENERADO;

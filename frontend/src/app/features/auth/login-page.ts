@@ -7,6 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 
+import { entorno } from '../../core/config/entorno';
 import { AuthService } from '../../core/services/auth.service';
 import { mensajeDeError } from '../../core/services/errores-cognito';
 
@@ -30,6 +31,7 @@ export class LoginPage {
     usuario: ['', [obligatorio]],
     contrasena: ['', [obligatorio]],
   });
+  protected readonly modoDemo = entorno.modoDemo;
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly verContrasena = signal(false);

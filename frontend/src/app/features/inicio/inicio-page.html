@@ -33,4 +33,10 @@
   </a>
 </section>
 
-<p class="nota">Los números cuentan todos los comprobantes del emisor guardados en AWS.</p>
+<p class="nota">
+  @if (modoDemo) {
+    Datos de muestra simulados: no hay nada guardado en AWS.
+  } @else {
+    Los números cuentan todos los comprobantes del emisor guardados en AWS.
+  }
+</p>

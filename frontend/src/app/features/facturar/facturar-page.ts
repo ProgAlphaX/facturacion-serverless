@@ -12,7 +12,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { interval, map, startWith, take } from 'rxjs';
 
-import { ClaveEjemplo, EJEMPLOS, crearEjemplo, numeroAleatorio } from '../../core/ejemplos/ejemplos-comprobante';
+import { entorno } from '../../core/config/entorno';
+import { ClaveEjemplo, EJEMPLOS, EJEMPLOS_DEMO, crearEjemplo, numeroAleatorio } from '../../core/ejemplos/ejemplos-comprobante';
 import {
   ComprobanteEntrada,
   ETIQUETA_DOCUMENTO,
@@ -79,7 +80,7 @@ export class FacturarPage {
   protected readonly documentos = Object.entries(ETIQUETA_DOCUMENTO) as readonly [TipoDocumento, string][];
   protected readonly unidades = Object.entries(ETIQUETA_UNIDAD) as readonly [UnidadMedida, string][];
   protected readonly monedas: readonly Moneda[] = ['PEN', 'USD'];
-  protected readonly ejemplos = EJEMPLOS;
+  protected readonly ejemplos = entorno.modoDemo ? [...EJEMPLOS, ...EJEMPLOS_DEMO] : EJEMPLOS;
 
   protected readonly formulario = this.fb.group({
     tipo: this.fb.control<TipoComprobante>('01'),
