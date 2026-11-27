@@ -1,12 +1,11 @@
-import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
 
 import { ESTADOS_COMPROBANTE, ETIQUETA_ESTADO, ETIQUETA_TIPO, EstadoComprobante } from '../../core/models/comprobante';
@@ -14,6 +13,9 @@ import { FORMATO_ID, normalizarId } from '../../core/models/consulta';
 import { iniciarDescarga, mensajeDeDescarga } from '../../core/models/descarga';
 import { ConteoPorEstado, ResultadoListado, ResumenComprobante } from '../../core/models/listado';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
+import { AlVerse } from '../../shared/directivas/al-verse';
+import { EmptyState } from '../../shared/ui/empty-state/empty-state';
+import { Skeleton } from '../../shared/ui/skeleton/skeleton';
 import { StatusPill } from '../../shared/ui/status-pill/status-pill';
 
 type FiltroEstado = EstadoComprobante | 'TODOS';
@@ -23,7 +25,11 @@ const FILAS_POR_PAGINA = 25;
 @Component({
   selector: 'fn-comprobantes-page',
   imports: [
+    AlVerse,
+    DatePipe,
     DecimalPipe,
+    EmptyState,
+    Skeleton,
     ReactiveFormsModule,
     RouterLink,
     MatButtonModule,
@@ -31,16 +37,19 @@ const FILAS_POR_PAGINA = 25;
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatSelectModule,
     StatusPill,
   ],
   templateUrl: './comprobantes-page.html',
   styleUrl: './comprobantes-page.scss',
+  host: { class: 'fn-page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ComprobantesPage {
+export class ComprobantesPage implements OnInit {
   private readonly comprobantes = inject(ComprobantesService);
   private readonly router = inject(Router);
+
+  /** Filtro inicial; llega como `?estado=` desde las tarjetas de Inicio. */
+  readonly estado = input<string>();
 
   protected readonly etiquetaEstado = ETIQUETA_ESTADO;
   protected readonly etiquetaTipo = ETIQUETA_TIPO;
@@ -65,7 +74,11 @@ export class ComprobantesPage {
     return r !== null && r.PROCESANDO + r.ACEPTADO + r.RECHAZADO + r.ERROR_ENVIO === 0;
   });
 
-  constructor() {
+  ngOnInit(): void {
+    const inicial = this.estados.find((estado) => estado === this.estado());
+    if (inicial !== undefined) {
+      this.filtro.set(inicial);
+    }
     this.cargar();
   }
 

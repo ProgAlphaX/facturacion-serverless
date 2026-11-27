@@ -10,12 +10,13 @@ import { Router } from '@angular/router';
 import { entorno } from '../../core/config/entorno';
 import { AuthService } from '../../core/services/auth.service';
 import { mensajeDeError } from '../../core/services/errores-cognito';
+import { Logo } from '../../shared/ui/logo/logo';
 
 const obligatorio = (control: AbstractControl): ValidationErrors | null => Validators.required(control);
 
 @Component({
   selector: 'fn-login-page',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, Logo],
   templateUrl: './login-page.html',
   styleUrl: './login-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

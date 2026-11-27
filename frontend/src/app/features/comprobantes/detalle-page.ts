@@ -1,16 +1,17 @@
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { RouterLink } from '@angular/router';
 import { Subject, map, merge, switchMap, take, timer } from 'rxjs';
 
 import { ETIQUETA_DOCUMENTO, ETIQUETA_TIPO, ETIQUETA_UNIDAD } from '../../core/models/comprobante';
 import { ComprobanteGuardado, ResultadoConsulta, normalizarId } from '../../core/models/consulta';
 import { ETIQUETA_ARCHIVO, TIPOS_ARCHIVO, TipoArchivo, iniciarDescarga, mensajeDeDescarga } from '../../core/models/descarga';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
+import { EmptyState } from '../../shared/ui/empty-state/empty-state';
+import { Skeleton } from '../../shared/ui/skeleton/skeleton';
 import { StatusPill } from '../../shared/ui/status-pill/status-pill';
 
 /** El PDF lo genera un evento de S3 unos 9 s después de aceptar el comprobante. */
@@ -19,9 +20,10 @@ const MAXIMO_REINTENTOS = 8;
 
 @Component({
   selector: 'fn-detalle-page',
-  imports: [DecimalPipe, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule, StatusPill],
+  imports: [DatePipe, DecimalPipe, MatButtonModule, MatIconModule, MatProgressSpinnerModule, EmptyState, Skeleton, StatusPill],
   templateUrl: './detalle-page.html',
   styleUrl: './detalle-page.scss',
+  host: { class: 'fn-page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DetallePage {

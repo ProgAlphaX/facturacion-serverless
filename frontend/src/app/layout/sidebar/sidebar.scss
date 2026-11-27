@@ -1,42 +1,35 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
   height: 100%;
-  padding: 20px 14px;
-  background: var(--fn-ink);
-  color: #ffffff;
+  width: 248px;
+  padding: 18px 14px;
+  background: var(--fn-surface);
+}
+
+:host(.compacto) {
+  width: 108px;
+  padding: 14px 8px;
 }
 
 .marca {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 8px;
-  color: inherit;
+  padding: 2px 6px 14px;
+  color: var(--fn-ink);
+  font: 800 19px/1 'Nunito', sans-serif;
   text-decoration: none;
 }
 
-.logo {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--fn-brand);
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-}
-
-.nombre {
-  font-family: 'Nunito', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
+:host(.compacto) .marca {
+  justify-content: center;
+  padding: 2px 0 10px;
 }
 
 nav {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 4px;
 }
 
@@ -44,18 +37,38 @@ nav {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: #d1d5db;
-  font-weight: 600;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--fn-ink-2);
+  font: 700 14.5px/1 'Nunito Sans', sans-serif;
   text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--fn-hover);
+    color: var(--fn-ink);
   }
 
   &.activo {
-    background: var(--fn-brand);
-    color: #ffffff;
+    background: var(--fn-brand-soft);
+    color: var(--fn-brand);
   }
+}
+
+:host(.compacto) .item {
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 6px 2px;
+  border-radius: 14px;
+  font-size: 11px;
+}
+
+.salir {
+  margin-top: auto;
 }

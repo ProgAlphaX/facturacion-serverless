@@ -1,6 +1,8 @@
 <a class="marca" routerLink="/inicio" aria-label="FacturaNube, inicio">
-  <span class="logo">F</span>
-  <span class="nombre">FacturaNube</span>
+  <fn-logo />
+  @if (!compacto()) {
+    <span>FacturaNube</span>
+  }
 </a>
 
 <nav aria-label="Menú principal">
@@ -16,3 +18,8 @@
     </a>
   }
 </nav>
+
+<button class="item salir" type="button" (click)="auth.cerrarSesion()">
+  <mat-icon fontSet="material-symbols-rounded">logout</mat-icon>
+  <span>{{ compacto() ? 'Salir' : 'Cerrar sesión' }}</span>
+</button>

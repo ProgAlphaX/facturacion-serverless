@@ -1,60 +1,89 @@
-h1 {
-  font-size: 28px;
-  font-weight: 800;
-}
-
-.subtitulo {
-  margin: 4px 0 24px;
-  color: var(--fn-ink-3);
-}
-
-.tarjetas {
+.contadores {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  max-width: 960px;
-}
-
-.tarjeta {
-  padding: 20px;
-}
-
-.valor {
-  margin: 0;
-  font-family: 'Nunito', sans-serif;
-  font-size: 40px;
-  font-weight: 800;
-  line-height: 1.1;
-}
-
-.etiqueta {
-  margin: 4px 0 0;
-  color: var(--fn-ink-3);
-  font-weight: 600;
-}
-
-.acciones {
-  display: flex;
-  flex-wrap: wrap;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 24px;
+
+  a {
+    display: block;
+    border-radius: 16px;
+    text-decoration: none;
+  }
 }
 
-.nota {
-  margin: 16px 0 0;
-  color: var(--fn-ink-3);
-  font-size: 13px;
+.panel {
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 8px 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0 8px 8px;
+    list-style: none;
+  }
+
+  li a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px;
+    border-radius: 12px;
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      background: var(--fn-hover);
+    }
+  }
 }
 
-.aviso {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 960px;
-  margin: 0 0 16px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: #fef3c7;
-  color: #92600a;
-  font-weight: 600;
+.icono {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--fn-brand-soft);
+  color: var(--fn-brand);
+}
+
+.texto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+
+  b,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--fn-ink-3);
+    font-size: 12.5px;
+  }
+}
+
+.monto {
+  font: 800 14px/1 'Nunito', sans-serif;
+  white-space: nowrap;
+}
+
+@media (max-width: 899.98px) {
+  .contadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monto {
+    display: none;
+  }
 }

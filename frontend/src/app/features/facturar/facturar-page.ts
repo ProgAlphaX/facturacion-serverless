@@ -29,6 +29,7 @@ import {
 import { ResultadoEmision } from '../../core/models/emision';
 import { agruparPorCampo, hoyEnLima, validarBorrador } from '../../core/reglas/reglas-comprobante';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
+import { Skeleton } from '../../shared/ui/skeleton/skeleton';
 import { ValorFormulario, aComprobante } from './borrador';
 import { ResultadoEmisionCard } from './resultado-emision';
 
@@ -66,9 +67,11 @@ function crearItem(fb: NonNullableFormBuilder, item?: ItemComprobante): GrupoIte
     MatSelectModule,
     MatSlideToggleModule,
     ResultadoEmisionCard,
+    Skeleton,
   ],
   templateUrl: './facturar-page.html',
   styleUrl: './facturar-page.scss',
+  host: { class: 'fn-page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FacturarPage {

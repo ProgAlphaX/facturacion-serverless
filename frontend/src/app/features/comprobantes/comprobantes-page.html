@@ -1,76 +1,62 @@
-<header class="cabecera">
-  <div>
-    <h1>Comprobantes</h1>
-    <p class="subtitulo">Todo lo emitido, desde cualquier origen (la web, Postman o los scripts).</p>
-  </div>
-  <button mat-stroked-button type="button" [disabled]="cargando()" (click)="cargar()">
-    <mat-icon fontSet="material-symbols-rounded" [class.girando]="cargando()">refresh</mat-icon>
-    Actualizar
-  </button>
-</header>
-
-<section class="fn-card bloque buscador">
-  <form [formGroup]="formularioNumero" (ngSubmit)="consultarNumero()" novalidate>
-    <mat-form-field appearance="outline" class="numero">
-      <mat-label>Consultar por número</mat-label>
-      <input matInput formControlName="numero" placeholder="20000000001-01-F001-00000001" />
-    </mat-form-field>
-    <button mat-flat-button type="submit">Consultar</button>
-  </form>
-  @if (errorNumero(); as mensaje) {
-    <p class="error" role="alert">{{ mensaje }}</p>
-  }
-</section>
-
 @if (aviso(); as mensaje) {
-  <p class="aviso" role="alert">
-    <mat-icon fontSet="material-symbols-rounded">warning</mat-icon>
-    {{ mensaje }}
+  <p class="aviso fn-alerta" role="alert">
+    <mat-icon fontSet="material-symbols-rounded">error</mat-icon>
+    <span>{{ mensaje }}</span>
   </p>
 }
 
-<section class="fn-card bloque">
-  <div class="filtros">
-    <mat-form-field appearance="outline" class="filtro">
-      <mat-label>Estado</mat-label>
-      <mat-select [value]="filtro()" (selectionChange)="cambiarFiltro($event.value)">
-        <mat-option value="TODOS">Todos</mat-option>
-        @for (estado of estados; track estado) {
-          <mat-option [value]="estado">
-            {{ etiquetaEstado[estado] }}@if (resumen(); as conteo) { ({{ conteo[estado] }}) }
-          </mat-option>
+<section class="fn-card">
+  <div class="herramientas" role="search">
+    <form [formGroup]="formularioNumero" (ngSubmit)="consultarNumero()" novalidate>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-icon matPrefix fontSet="material-symbols-rounded">search</mat-icon>
+        <mat-label>Buscar por número</mat-label>
+        <input matInput formControlName="numero" placeholder="20000000001-01-F001-00000001" />
+      </mat-form-field>
+      <button mat-stroked-button type="submit">Consultar</button>
+    </form>
+    <button mat-icon-button type="button" class="recargar" aria-label="Actualizar lista" [disabled]="cargando()" (click)="cargar()">
+      <mat-icon fontSet="material-symbols-rounded" [class.girando]="cargando()">refresh</mat-icon>
+    </button>
+    @if (errorNumero(); as mensaje) {
+      <p class="error" role="alert">{{ mensaje }}</p>
+    }
+  </div>
+
+  <div class="filtros" role="group" aria-label="Filtrar por estado">
+    <button type="button" [class.activo]="filtro() === 'TODOS'" [attr.aria-pressed]="filtro() === 'TODOS'" (click)="cambiarFiltro('TODOS')">
+      Todos
+    </button>
+    @for (estado of estados; track estado) {
+      <button type="button" [class.activo]="filtro() === estado" [attr.aria-pressed]="filtro() === estado" (click)="cambiarFiltro(estado)">
+        <i class="punto punto--{{ estado }}"></i>
+        {{ etiquetaEstado[estado] }}
+        @if (resumen(); as conteo) {
+          <small>{{ conteo[estado] }}</small>
         }
-      </mat-select>
-    </mat-form-field>
-    @if (!cargando() && filas().length > 0) {
-      <p class="conteo">Mostrando {{ filas().length }} de {{ total() }}</p>
+      </button>
     }
   </div>
 
   @if (cargando()) {
-    <p class="cargando"><mat-spinner diameter="24" /> Cargando comprobantes…</p>
+    <div class="cargando"><fn-skeleton [filas]="6" [alto]="40" /></div>
   } @else if (vacio()) {
-    <div class="vacio">
-      <mat-icon fontSet="material-symbols-rounded">receipt_long</mat-icon>
-      @if (sinNingunComprobante()) {
-        <h2>Todavía no hay comprobantes</h2>
-        <p>Emite uno en Facturar y aparecerá aquí.</p>
+    @if (sinNingunComprobante()) {
+      <fn-empty-state titulo="Todavía no hay comprobantes">
         <a mat-flat-button routerLink="/facturar">Ir a Facturar</a>
-      } @else {
-        <h2>No hay comprobantes con ese estado</h2>
-        <p>Prueba con otro filtro.</p>
-      }
-    </div>
+      </fn-empty-state>
+    } @else {
+      <fn-empty-state titulo="No hay comprobantes con ese estado" />
+    }
   } @else {
-    <div class="tabla-envoltorio">
+    <div class="fn-tabla">
       <table>
         <thead>
           <tr>
-            <th scope="col">Número</th>
-            <th scope="col">Tipo</th>
             <th scope="col">Cliente</th>
-            <th scope="col" class="derecha">Total</th>
+            <th scope="col">Número</th>
             <th scope="col">Fecha</th>
+            <th scope="col" class="derecha">Total</th>
             <th scope="col">Estado</th>
             <th scope="col"><span class="oculto">Acciones</span></th>
           </tr>
@@ -78,13 +64,17 @@
         <tbody>
           @for (fila of filas(); track fila.id) {
             <tr>
-              <td class="id">{{ fila.serie }}-{{ fila.numero }}</td>
-              <td>{{ etiquetaTipo[fila.tipo] }}</td>
-              <td>{{ fila.clienteNombre }}</td>
-              <td class="derecha">{{ simbolo(fila.moneda) }} {{ fila.total | number: '1.2-2' }}</td>
-              <td>{{ fila.fechaEmision }}</td>
+              <td class="cliente">{{ fila.clienteNombre }}</td>
+              <td>
+                <b>{{ fila.serie }}-{{ fila.numero }}</b>
+                <small>{{ etiquetaTipo[fila.tipo] }}</small>
+              </td>
+              <td class="sin-salto">{{ fila.fechaEmision | date: 'd MMM y' }}</td>
+              <td class="derecha sin-salto">
+                <b>{{ simbolo(fila.moneda) }} {{ fila.total | number: '1.2-2' }}</b>
+              </td>
               <td><fn-status-pill [estado]="fila.estado" /></td>
-              <td class="acciones">
+              <td class="derecha sin-salto">
                 <a mat-icon-button [routerLink]="['/comprobantes', fila.id]" [attr.aria-label]="'Ver el detalle de ' + fila.id">
                   <mat-icon fontSet="material-symbols-rounded">visibility</mat-icon>
                 </a>
@@ -93,7 +83,7 @@
                   type="button"
                   [disabled]="!fila.tienePdf || descargando().has(fila.id + ':pdf')"
                   [attr.aria-label]="fila.tienePdf ? 'Descargar el PDF de ' + fila.id : 'Sin PDF para ' + fila.id"
-                  [attr.title]="fila.tienePdf ? 'Descargar PDF' : 'Este comprobante no tiene PDF'"
+                  [attr.title]="fila.tienePdf ? 'Descargar PDF' : 'Sin PDF'"
                   (click)="descargarPdf(fila)"
                 >
                   <mat-icon fontSet="material-symbols-rounded">picture_as_pdf</mat-icon>
@@ -104,16 +94,20 @@
         </tbody>
       </table>
     </div>
-    @if (siguiente() !== null) {
-      <div class="mas">
-        <button mat-stroked-button type="button" [disabled]="cargandoMas()" (click)="cargarMas()">
-          @if (cargandoMas()) {
-            <mat-spinner diameter="20" />
-          } @else {
-            Cargar más
-          }
-        </button>
-      </div>
-    }
+    <footer>
+      <span class="conteo">Mostrando {{ filas().length }} de {{ total() }}</span>
+      @if (siguiente() !== null) {
+        <!-- Al llegar al final se pide la siguiente página sola; el botón queda como respaldo -->
+        <div class="mas" (fnAlVerse)="cargarMas()">
+          <button mat-button type="button" [disabled]="cargandoMas()" (click)="cargarMas()">
+            @if (cargandoMas()) {
+              <mat-spinner diameter="20" />
+            } @else {
+              Cargar más
+            }
+          </button>
+        </div>
+      }
+    </footer>
   }
 </section>

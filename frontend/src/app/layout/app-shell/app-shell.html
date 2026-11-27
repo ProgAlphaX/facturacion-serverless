@@ -1,11 +1,16 @@
-<mat-sidenav-container class="contenedor">
-  <mat-sidenav mode="side" opened class="menu">
-    <fn-sidebar />
-  </mat-sidenav>
-  <mat-sidenav-content>
-    <fn-topbar />
+<mat-sidenav-container class="contenedor" autosize>
+  @if (!esMovil()) {
+    <mat-sidenav mode="side" opened class="menu">
+      <fn-sidebar [compacto]="esTablet()" />
+    </mat-sidenav>
+  }
+  <mat-sidenav-content class="contenido">
+    <fn-topbar [esMovil]="esMovil()" />
     <main>
       <router-outlet />
     </main>
+    @if (esMovil()) {
+      <fn-bottom-nav />
+    }
   </mat-sidenav-content>
 </mat-sidenav-container>

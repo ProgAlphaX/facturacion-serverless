@@ -1,26 +1,21 @@
-<a mat-button routerLink="/comprobantes" class="volver">
-  <mat-icon fontSet="material-symbols-rounded">arrow_back</mat-icon>
-  Volver a comprobantes
-</a>
-
 @if (cargando() && resultado() === null) {
-  <p class="cargando"><mat-spinner diameter="24" /> Consultando {{ id() }}…</p>
+  <fn-skeleton [filas]="1" [alto]="90" />
+  <fn-skeleton [filas]="6" [alto]="36" />
 }
 
 @if (resultado(); as r) {
   @switch (r.resultado) {
     @case ('ENCONTRADO') {
       @let c = r.comprobante;
-      <header class="cabecera">
+      <header class="fn-saludo">
         <div>
-          <h1>{{ etiquetaTipo[c.tipo] }} {{ c.serie }}-{{ c.numero }}</h1>
-          <p class="subtitulo id">{{ c.id }}</p>
+          <h2>{{ etiquetaTipo[c.tipo] }} {{ c.serie }}-{{ c.numero }}</h2>
+          <p class="numero">{{ c.id }}</p>
         </div>
         <div class="estado">
           <fn-status-pill [estado]="c.estado" />
-          <button mat-stroked-button type="button" [disabled]="cargando()" (click)="actualizar()">
+          <button mat-icon-button type="button" aria-label="Actualizar" [disabled]="cargando()" (click)="actualizar()">
             <mat-icon fontSet="material-symbols-rounded">refresh</mat-icon>
-            Actualizar
           </button>
         </div>
       </header>
@@ -28,22 +23,19 @@
       <div class="cuerpo">
         <div class="columna">
           <section class="fn-card bloque">
-            <h2>Cliente</h2>
+            <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">person</mat-icon>Cliente</h3>
             <dl>
               <dt>Nombre</dt>
               <dd>{{ c.cliente.nombre }}</dd>
               <dt>{{ etiquetaDocumento[c.cliente.tipoDoc] }}</dt>
               <dd>{{ c.cliente.numDoc }}</dd>
-              <dt>Fecha de emisión</dt>
-              <dd>{{ c.fechaEmision }}</dd>
-              <dt>Moneda</dt>
-              <dd>{{ c.moneda }}</dd>
+              <dt>Fecha</dt>
+              <dd>{{ c.fechaEmision | date: 'd MMM y' }}</dd>
             </dl>
           </section>
 
-          <section class="fn-card bloque">
-            <h2>Ítems</h2>
-            <div class="tabla-envoltorio">
+          <section class="fn-card">
+            <div class="fn-tabla items">
               <table>
                 <thead>
                   <tr>
@@ -67,12 +59,6 @@
                 </tbody>
               </table>
             </div>
-          </section>
-        </div>
-
-        <aside class="columna">
-          <section class="fn-card bloque">
-            <h2>Totales</h2>
             <dl class="totales">
               <dt>Valor de venta</dt>
               <dd>{{ simbolo() }} {{ c.totales.valorVenta | number: '1.2-2' }}</dd>
@@ -82,114 +68,92 @@
               <dd class="total">{{ simbolo() }} {{ c.totales.total | number: '1.2-2' }}</dd>
             </dl>
           </section>
+        </div>
 
+        <aside class="columna">
           <section class="fn-card bloque">
-            <h2>Respuesta de SUNAT</h2>
+            <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">verified</mat-icon>SUNAT</h3>
             @if (c.cdr; as cdr) {
-              <dl>
-                <dt>Código (CDR)</dt>
-                <dd>{{ cdr.codigo }}</dd>
-                <dt>Descripción</dt>
-                <dd>{{ cdr.descripcion }}</dd>
-                @for (observacion of cdr.observaciones; track observacion) {
-                  <dt>Observación</dt>
-                  <dd>{{ observacion }}</dd>
-                }
-              </dl>
+              <p><b>CDR {{ cdr.codigo }}</b> · {{ cdr.descripcion }}</p>
+              @for (observacion of cdr.observaciones; track observacion) {
+                <p>{{ observacion }}</p>
+              }
             } @else if (c.estado === 'ERROR_ENVIO') {
-              <p class="nota error">
-                No se pudo enviar a SUNAT{{ c.error ? ' (' + c.error + ')' : '' }}. El comprobante quedó guardado con este número.
-              </p>
+              <p class="error">No se pudo enviar a SUNAT{{ c.error ? ' (' + c.error + ')' : '' }}.</p>
             } @else {
-              <p class="nota">Todavía no hay respuesta de SUNAT.</p>
+              <p>Sin respuesta todavía.</p>
             }
             @if (c.hash; as hash) {
-              <p class="etiqueta">Huella (hash)</p>
-              <p class="hash">{{ hash }}</p>
+              <p class="hash" title="Huella (hash)">{{ hash }}</p>
             }
           </section>
 
           <section class="fn-card bloque">
-            <h2>Archivos</h2>
+            <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">folder_zip</mat-icon>Archivos</h3>
             @if (avisoDescarga(); as aviso) {
-              <p class="nota error" role="alert">{{ aviso }}</p>
+              <p class="error" role="alert">{{ aviso }}</p>
             }
-            <ul class="archivos">
+            <div class="archivos">
               @for (tipo of tiposArchivo; track tipo) {
-                <li>
+                <button type="button" [disabled]="claveDe(c, tipo) === undefined || descargando().has(tipo)" (click)="descargar(tipo)">
                   <mat-icon fontSet="material-symbols-rounded">{{ tipo === 'pdf' ? 'picture_as_pdf' : tipo === 'cdr' ? 'verified' : 'code' }}</mat-icon>
-                  <span>{{ etiquetaArchivo[tipo] }}</span>
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    [disabled]="claveDe(c, tipo) === undefined || descargando().has(tipo)"
-                    (click)="descargar(tipo)"
-                  >
-                    @if (descargando().has(tipo)) {
-                      <mat-spinner diameter="16" />
-                    } @else {
-                      <mat-icon fontSet="material-symbols-rounded">download</mat-icon>
+                  <span>
+                    {{ etiquetaArchivo[tipo] }}
+                    @if (claveDe(c, tipo) === undefined) {
+                      <small>{{ tipo === 'pdf' && esperandoPdf() ? 'generándose…' : 'no disponible' }}</small>
                     }
-                    Descargar
-                  </button>
-                  @if (claveDe(c, tipo); as clave) {
-                    <code>{{ clave }}</code>
-                  } @else if (tipo === 'pdf' && esperandoPdf()) {
-                    <span class="nota"><mat-spinner diameter="14" /> generándose…</span>
+                  </span>
+                  @if (descargando().has(tipo) || (tipo === 'pdf' && esperandoPdf())) {
+                    <mat-spinner diameter="18" />
                   } @else {
-                    <code>no disponible</code>
+                    <mat-icon fontSet="material-symbols-rounded">download</mat-icon>
                   }
-                </li>
+                </button>
               }
-            </ul>
-            <p class="nota">El enlace de descarga es temporal: vence a los 5 minutos.</p>
+            </div>
           </section>
         </aside>
       </div>
     }
     @case ('NO_EXISTE') {
-      <section class="fn-card bloque mensaje" role="alert">
-        <mat-icon fontSet="material-symbols-rounded">search_off</mat-icon>
-        <h2>No existe ese comprobante</h2>
-        <p>{{ r.mensaje }}</p>
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="No existe ese comprobante">
+          <p>{{ r.mensaje }}</p>
+        </fn-empty-state>
       </section>
     }
     @case ('LIMITE_PETICIONES') {
-      <section class="fn-card bloque mensaje" role="alert">
-        <mat-icon fontSet="material-symbols-rounded">speed</mat-icon>
-        <h2>Demasiadas peticiones</h2>
-        <p>La API permite 5 por segundo. Espera unos segundos y pulsa Actualizar.</p>
-        <button mat-stroked-button type="button" (click)="actualizar()">Actualizar</button>
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Demasiadas peticiones">
+          <button mat-flat-button type="button" (click)="actualizar()">Actualizar</button>
+        </fn-empty-state>
       </section>
     }
     @case ('SESION_EXPIRADA') {
-      <section class="fn-card bloque mensaje" role="alert">
-        <mat-icon fontSet="material-symbols-rounded">lock_clock</mat-icon>
-        <h2>Tu sesión venció</h2>
-        <p>Vuelve a iniciar sesión para seguir.</p>
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Tu sesión venció" />
       </section>
     }
     @case ('SIN_CONEXION') {
-      <section class="fn-card bloque mensaje" role="alert">
-        <mat-icon fontSet="material-symbols-rounded">wifi_off</mat-icon>
-        <h2>Sin conexión</h2>
-        <p>No se pudo llegar a la API. Revisa tu internet y que el servidor local siga encendido.</p>
-        <button mat-stroked-button type="button" (click)="actualizar()">Reintentar</button>
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Sin conexión">
+          <button mat-flat-button type="button" (click)="actualizar()">Reintentar</button>
+        </fn-empty-state>
       </section>
     }
     @case ('TIEMPO_AGOTADO') {
-      <section class="fn-card bloque mensaje" role="alert">
-        <mat-icon fontSet="material-symbols-rounded">hourglass_disabled</mat-icon>
-        <h2>La API tardó demasiado</h2>
-        <button mat-stroked-button type="button" (click)="actualizar()">Reintentar</button>
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="La API tardó demasiado">
+          <button mat-flat-button type="button" (click)="actualizar()">Reintentar</button>
+        </fn-empty-state>
       </section>
     }
     @case ('ERROR') {
-      <section class="fn-card bloque mensaje" role="alert">
-        <mat-icon fontSet="material-symbols-rounded">warning</mat-icon>
-        <h2>Algo salió mal</h2>
-        <p>{{ r.mensaje }}</p>
-        <button mat-stroked-button type="button" (click)="actualizar()">Reintentar</button>
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Algo salió mal">
+          <p>{{ r.mensaje }}</p>
+          <button mat-flat-button type="button" (click)="actualizar()">Reintentar</button>
+        </fn-empty-state>
       </section>
     }
   }

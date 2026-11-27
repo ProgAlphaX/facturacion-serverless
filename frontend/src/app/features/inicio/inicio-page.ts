@@ -1,30 +1,45 @@
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
-import { entorno } from '../../core/config/entorno';
-import { ConteoPorEstado } from '../../core/models/listado';
+import { EstadoComprobante, ETIQUETA_TIPO } from '../../core/models/comprobante';
+import { ConteoPorEstado, ResumenComprobante } from '../../core/models/listado';
+import { AuthService } from '../../core/services/auth.service';
 import { ComprobantesService } from '../../core/services/comprobantes.service';
+import { EmptyState } from '../../shared/ui/empty-state/empty-state';
+import { Skeleton } from '../../shared/ui/skeleton/skeleton';
+import { StatCard, TonoStat } from '../../shared/ui/stat-card/stat-card';
+import { StatusPill } from '../../shared/ui/status-pill/status-pill';
 
 interface Tarjeta {
   readonly etiqueta: string;
   readonly valor: number;
-  readonly color: string;
+  readonly icono: string;
+  readonly tono: TonoStat;
+  /** Filtro con el que se abre la lista al pulsar la tarjeta. */
+  readonly estado: EstadoComprobante | null;
 }
+
+const ULTIMOS = 5;
 
 @Component({
   selector: 'fn-inicio-page',
-  imports: [RouterLink, MatButtonModule, MatIconModule],
+  imports: [DatePipe, DecimalPipe, RouterLink, MatButtonModule, MatIconModule, EmptyState, Skeleton, StatCard, StatusPill],
   templateUrl: './inicio-page.html',
   styleUrl: './inicio-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'fn-page' },
 })
 export class InicioPage {
   private readonly comprobantes = inject(ComprobantesService);
 
-  protected readonly modoDemo = entorno.modoDemo;
+  protected readonly auth = inject(AuthService);
+  protected readonly hoy = new Date();
+  protected readonly etiquetaTipo = ETIQUETA_TIPO;
   protected readonly resumen = signal<ConteoPorEstado | null>(null);
+  protected readonly ultimos = signal<readonly ResumenComprobante[]>([]);
   protected readonly cargando = signal(true);
   protected readonly aviso = signal<string | null>(null);
 
@@ -33,11 +48,12 @@ export class InicioPage {
     if (r === null) {
       return [];
     }
+    const total = r.PROCESANDO + r.ACEPTADO + r.RECHAZADO + r.ERROR_ENVIO;
     return [
-      { etiqueta: 'Emitidos', valor: r.PROCESANDO + r.ACEPTADO + r.RECHAZADO + r.ERROR_ENVIO, color: 'var(--fn-ink)' },
-      { etiqueta: 'Aceptados', valor: r.ACEPTADO, color: 'var(--fn-aceptado)' },
-      { etiqueta: 'Rechazados', valor: r.RECHAZADO, color: 'var(--fn-rechazado)' },
-      { etiqueta: 'Con error de envío', valor: r.ERROR_ENVIO, color: 'var(--fn-error-envio)' },
+      { etiqueta: 'Emitidos', valor: total, icono: 'receipt_long', tono: 'TOTAL', estado: null },
+      { etiqueta: 'Aceptados', valor: r.ACEPTADO, icono: 'check_circle', tono: 'ACEPTADO', estado: 'ACEPTADO' },
+      { etiqueta: 'Rechazados', valor: r.RECHAZADO, icono: 'cancel', tono: 'RECHAZADO', estado: 'RECHAZADO' },
+      { etiqueta: 'Error de envío', valor: r.ERROR_ENVIO, icono: 'cloud_off', tono: 'ERROR_ENVIO', estado: 'ERROR_ENVIO' },
     ];
   });
 
@@ -48,13 +64,13 @@ export class InicioPage {
   protected cargar(): void {
     this.cargando.set(true);
     this.aviso.set(null);
-    // Se pide una sola fila: solo interesa el conteo por estado que acompaña a cualquier página.
-    this.comprobantes.listar({ limite: 1 }).subscribe((resultado) => {
+    this.comprobantes.listar({ limite: ULTIMOS }).subscribe((resultado) => {
       this.cargando.set(false);
       if (resultado.resultado === 'LISTADO') {
         this.resumen.set(resultado.pagina.resumen);
+        this.ultimos.set(resultado.pagina.comprobantes);
       } else {
-        this.aviso.set('No se pudo traer el resumen de comprobantes. Revisa que la API esté encendida y vuelve a intentar.');
+        this.aviso.set('No se pudo traer el resumen. Revisa que la API esté encendida.');
       }
     });
   }

@@ -1,32 +1,55 @@
 :host {
   display: flex;
+  flex: none;
   align-items: center;
-  gap: 16px;
-  height: 56px;
-  padding: 0 24px;
-  background: var(--fn-surface);
+  justify-content: space-between;
+  gap: 12px;
+  height: 64px;
+  padding: 0 16px 0 22px;
   border-bottom: 1px solid var(--fn-line);
+  background: var(--fn-surface);
 }
 
-.entorno {
-  margin-right: auto;
-  color: var(--fn-ink-3);
+.izquierda,
+.derecha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.perfil {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px 4px;
+  border: 1px solid var(--fn-line);
+  border-radius: 999px;
+  background: var(--fn-hover);
   font-size: 13px;
 }
 
-.usuario {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700;
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--fn-brand);
+  color: #ffffff;
+  font: 800 13px/1 'Nunito', sans-serif;
 }
 
 .demo {
-  padding: 3px 10px;
+  padding: 5px 10px;
   border-radius: 999px;
-  background: var(--fn-proceso);
-  color: var(--fn-ink);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  background: #fff3e2;
+  color: #9a4f00;
+  font: 800 11px/1 'Nunito', sans-serif;
+  letter-spacing: 0.05em;
 }

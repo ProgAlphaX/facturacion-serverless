@@ -1,27 +1,18 @@
 :host {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  justify-content: center;
+  min-width: 104px;
+  padding: 6px 12px;
+  border: 1px solid;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
+  font: 800 11px/1 'Nunito', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-:host(.pill--ACEPTADO) {
-  background: var(--fn-aceptado);
-}
-
-:host(.pill--RECHAZADO) {
-  background: var(--fn-rechazado);
-}
-
-:host(.pill--PROCESANDO) {
-  background: var(--fn-proceso);
-  color: var(--fn-ink);
-}
-
-:host(.pill--ERROR_ENVIO) {
-  background: var(--fn-error-envio);
-}
+:host(.pill--ACEPTADO) { background: #e4f7ec; color: #13714a; border-color: #a5dfbf; }
+:host(.pill--RECHAZADO) { background: #fdeceb; color: #b3261e; border-color: #f4b4ae; }
+:host(.pill--PROCESANDO) { background: #eaf0ff; color: #2245c2; border-color: #b7c7ff; }
+:host(.pill--ERROR_ENVIO) { background: #f5ecff; color: #7428b4; border-color: #d8b6f6; }

@@ -1,86 +1,85 @@
 .tarjeta {
-  padding: 16px;
+  --tono: #2245c2;
+  --fondo: #eaf0ff;
+
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 22px 18px;
   border: 1px solid var(--fn-line);
-  border-left-width: 6px;
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--fn-surface);
+  text-align: center;
+  animation: aparecer 0.25s ease-out;
 
   &.aceptado {
-    border-left-color: var(--fn-aceptado);
-    h3 {
-      color: var(--fn-aceptado);
-    }
+    --tono: var(--fn-aceptado);
+    --fondo: #e4f7ec;
   }
 
-  &.rechazado,
-  &.invalido {
-    border-left-color: var(--fn-rechazado);
-    h3 {
-      color: var(--fn-rechazado);
-    }
+  &.rechazado {
+    --tono: var(--fn-rechazado);
+    --fondo: #fdeceb;
   }
 
   &.envio {
-    border-left-color: var(--fn-error-envio);
-    h3 {
-      color: var(--fn-error-envio);
-    }
+    --tono: var(--fn-error-envio);
+    --fondo: #f5ecff;
   }
 
   &.aviso {
-    border-left-color: var(--fn-proceso);
-    h3 {
-      color: #92600a;
-    }
+    --tono: #9a4f00;
+    --fondo: #fff3e2;
   }
 }
 
+.marca {
+  width: 60px;
+  height: 60px;
+  padding: 12px;
+  border-radius: 50%;
+  background: var(--fondo);
+  color: var(--tono);
+  font-size: 36px;
+  line-height: 36px;
+}
+
 h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
+  color: var(--tono);
+  font-size: 18px;
   font-weight: 800;
 }
 
 p {
-  margin: 8px 0 12px;
-  color: var(--fn-ink-2);
-}
-
-dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 16px;
-  margin: 0 0 12px;
-}
-
-dt {
-  color: var(--fn-ink-3);
-  font-size: 13px;
-}
-
-dd {
-  display: flex;
-  align-items: center;
   margin: 0;
-  font-weight: 600;
+  color: var(--fn-ink-2);
+  font-size: 14px;
+}
+
+.id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
   word-break: break-all;
 }
 
-.hash {
-  font-family: Consolas, monospace;
-  font-size: 12px;
-  font-weight: 400;
-}
-
 ul {
-  margin: 8px 0 0;
-  padding-left: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
 }
 
-.acciones {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+a[mat-flat-button],
+button[mat-flat-button] {
+  margin-top: 6px;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }

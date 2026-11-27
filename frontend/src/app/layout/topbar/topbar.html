@@ -1,0 +1,23 @@
+<div class="izquierda">
+  @if (datos().volver; as volver) {
+    <a mat-icon-button [routerLink]="volver" aria-label="Volver">
+      <mat-icon fontSet="material-symbols-rounded">arrow_back</mat-icon>
+    </a>
+  }
+  <h1>{{ datos().titulo }}</h1>
+</div>
+
+<div class="derecha">
+  @if (modoDemo) {
+    <span class="demo" role="status">MODO DEMO</span>
+  }
+  <div class="perfil">
+    <span class="avatar" aria-hidden="true">{{ inicial() }}</span>
+    <b>{{ auth.usuario() }}</b>
+  </div>
+  @if (esMovil()) {
+    <button mat-icon-button type="button" aria-label="Cerrar sesión" (click)="auth.cerrarSesion()">
+      <mat-icon fontSet="material-symbols-rounded">logout</mat-icon>
+    </button>
+  }
+</div>

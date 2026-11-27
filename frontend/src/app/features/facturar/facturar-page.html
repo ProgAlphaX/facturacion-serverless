@@ -1,10 +1,6 @@
-<header class="cabecera">
-  <div>
-    <h1>Facturar</h1>
-    <p class="subtitulo">Emite una factura o boleta: pasa por validación, XML, firma, SUNAT y PDF.</p>
-  </div>
+<header class="acciones">
   <button mat-stroked-button type="button" [matMenuTriggerFor]="menuEjemplos">
-    <mat-icon fontSet="material-symbols-rounded">science</mat-icon>
+    <mat-icon fontSet="material-symbols-rounded">auto_awesome</mat-icon>
     Cargar ejemplo
   </button>
   <mat-menu #menuEjemplos="matMenu">
@@ -22,7 +18,7 @@
 <form class="cuerpo" [formGroup]="formulario" (ngSubmit)="emitir()" novalidate>
   <div class="columna">
     <section class="fn-card bloque">
-      <h2>Comprobante</h2>
+      <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">description</mat-icon>Comprobante</h3>
       <div class="fila">
         <mat-form-field appearance="outline">
           <mat-label>Tipo</mat-label>
@@ -73,7 +69,7 @@
     </section>
 
     <section class="fn-card bloque" formGroupName="cliente">
-      <h2>Cliente</h2>
+      <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">person</mat-icon>Cliente</h3>
       <div class="fila">
         <mat-form-field appearance="outline">
           <mat-label>Documento</mat-label>
@@ -83,7 +79,7 @@
             }
           </mat-select>
         </mat-form-field>
-        <mat-form-field appearance="outline" class="crece">
+        <mat-form-field appearance="outline">
           <mat-label>Número de documento</mat-label>
           <input matInput formControlName="numDoc" />
         </mat-form-field>
@@ -102,10 +98,10 @@
 
     <section class="fn-card bloque">
       <div class="encabezado-items">
-        <h2>Ítems</h2>
-        <button mat-stroked-button type="button" (click)="agregarItem()">
+        <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">shopping_bag</mat-icon>Ítems</h3>
+        <button mat-button type="button" (click)="agregarItem()">
           <mat-icon fontSet="material-symbols-rounded">add</mat-icon>
-          Agregar ítem
+          Agregar
         </button>
       </div>
       @for (aviso of avisos('items'); track aviso) {
@@ -160,49 +156,44 @@
   </div>
 
   <aside class="columna lateral">
-    <section class="fn-card bloque">
-      <h2>Totales</h2>
-      <dl class="totales">
-        <dt>Valor de venta</dt>
-        <dd>{{ simbolo() }} {{ comprobante().totales.valorVenta | number: '1.2-2' }}</dd>
-        <dt>IGV (18 %)</dt>
-        <dd>{{ simbolo() }} {{ comprobante().totales.igv | number: '1.2-2' }}</dd>
-        <dt class="total">Total</dt>
-        <dd class="total">{{ simbolo() }} {{ comprobante().totales.total | number: '1.2-2' }}</dd>
-      </dl>
-      <p class="nota">Se calculan solos a partir de los ítems.</p>
-    </section>
-
-    <section class="fn-card bloque">
-      <h2>Revisión en vivo</h2>
-      @if (pendientes() === 0) {
-        <p class="ok"><mat-icon fontSet="material-symbols-rounded">check_circle</mat-icon> Sin avisos por ahora.</p>
-      } @else {
-        <p class="pendiente">
-          <mat-icon fontSet="material-symbols-rounded">error</mat-icon>
-          {{ pendientes() }} {{ pendientes() === 1 ? 'aviso por corregir' : 'avisos por corregir' }}
-        </p>
-      }
-      <mat-slide-toggle [checked]="modoPrueba()" (change)="modoPrueba.set($event.checked)">
-        Modo prueba: enviar aunque haya avisos
-      </mat-slide-toggle>
-      <button mat-flat-button type="submit" class="emitir" [disabled]="bloqueado()">
-        @if (enviando()) {
-          <mat-spinner diameter="20" />
-          Emitiendo…
-        } @else if (espera() > 0) {
-          Espera {{ espera() }} s
-        } @else {
-          Emitir comprobante
+    <section class="fn-card resumen">
+      <div class="monto">
+        <span>Total</span>
+        <b>{{ simbolo() }} {{ comprobante().totales.total | number: '1.2-2' }}</b>
+      </div>
+      <div class="detalle">
+        <dl>
+          <dt>Valor de venta</dt>
+          <dd>{{ simbolo() }} {{ comprobante().totales.valorVenta | number: '1.2-2' }}</dd>
+          <dt>IGV (18 %)</dt>
+          <dd>{{ simbolo() }} {{ comprobante().totales.igv | number: '1.2-2' }}</dd>
+        </dl>
+        @if (pendientes() > 0) {
+          <p class="pendiente">
+            <mat-icon fontSet="material-symbols-rounded">error</mat-icon>
+            {{ pendientes() }} {{ pendientes() === 1 ? 'aviso por corregir' : 'avisos por corregir' }}
+          </p>
         }
-      </button>
-      @if (enviando()) {
-        <p class="nota">Puede tardar hasta 30 segundos si SUNAT no responde.</p>
-      }
+        <mat-slide-toggle [checked]="modoPrueba()" (change)="modoPrueba.set($event.checked)">Enviar con avisos</mat-slide-toggle>
+        <button mat-flat-button type="submit" class="emitir" [disabled]="bloqueado()">
+          @if (enviando()) {
+            <mat-spinner diameter="20" />
+            Emitiendo…
+          } @else if (espera() > 0) {
+            Espera {{ espera() }} s
+          } @else {
+            Emitir comprobante
+          }
+        </button>
+      </div>
     </section>
 
     @if (resultado(); as r) {
-      <fn-resultado-emision [resultado]="r" [espera]="espera()" (otroComprobante)="otroNumero()" (otroNumero)="otroNumero()" />
+      @defer (on immediate) {
+        <fn-resultado-emision [resultado]="r" [espera]="espera()" (otroComprobante)="otroNumero()" (otroNumero)="otroNumero()" />
+      } @placeholder {
+        <fn-skeleton [filas]="1" [alto]="160" />
+      }
     }
   </aside>
 </form>

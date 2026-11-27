@@ -1,63 +1,59 @@
-.pantalla {
+:host {
   display: grid;
-  place-items: center;
-  min-height: 100vh;
-  padding: 24px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  min-height: 100dvh;
+  background: var(--fn-surface);
 }
 
-.panel {
-  width: 100%;
-  max-width: 420px;
-  padding: 32px;
+.arte {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 40px;
+  background: var(--fn-brand);
+  color: #ffffff;
+
+  h2 {
+    max-width: 18ch;
+    font-size: 34px;
+    line-height: 1.15;
+  }
 }
 
 .marca {
+  --logo-fondo: #ffffff;
+  --logo-nube: #3b4fd8;
+  --logo-visto: #ffffff;
+
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 24px;
+  font: 800 19px/1 'Nunito', sans-serif;
 }
 
-.logo {
+.ilustracion {
+  width: 100%;
+  max-width: 420px;
+  align-self: center;
+}
+
+.formulario {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--fn-brand);
-  color: #ffffff;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-}
-
-.nombre {
-  font-family: 'Nunito', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-h1 {
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.subtitulo {
-  margin: 4px 0 24px;
-  color: var(--fn-ink-3);
+  padding: 40px;
 }
 
 form {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 380px;
 }
 
-.error {
-  margin: 0 0 16px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #fde8eb;
-  color: var(--fn-rechazado);
-  font-weight: 600;
+h1 {
+  margin-bottom: 14px;
+  font-size: 28px;
 }
 
 .entrar {
@@ -65,10 +61,33 @@ form {
 }
 
 .demo {
-  margin: 0 0 16px;
+  margin: 0 0 6px;
   padding: 8px 12px;
-  border-radius: 10px;
-  background: #fef3c7;
-  color: #92600a;
+  border-radius: 12px;
+  background: #fff3e2;
+  color: #9a4f00;
   font-size: 13px;
+}
+
+@media (max-width: 799.98px) {
+  :host {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+  }
+
+  .arte {
+    padding: 22px 20px;
+
+    h2 {
+      font-size: 24px;
+    }
+  }
+
+  .ilustracion {
+    display: none;
+  }
+
+  .formulario {
+    padding: 24px 20px 32px;
+  }
 }

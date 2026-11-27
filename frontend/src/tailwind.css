@@ -7,16 +7,17 @@
   --font-head: "Nunito", ui-rounded, system-ui, sans-serif;
   --font-sans: "Nunito Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  --color-brand: #c8102e;
-  --color-brand-dark: #a30d25;
-  --color-ink: #12161f;
-  --color-ink-2: #1f2937;
-  --color-ink-3: #6b7280;
-  --color-line: #e5e7eb;
-  --color-paper: #f3f4f6;
+  --color-brand: #3b4fd8;
+  --color-brand-dark: #2d3eb5;
+  --color-brand-soft: #eef0ff;
+  --color-ink: #1b2040;
+  --color-ink-2: #424866;
+  --color-ink-3: #62688a;
+  --color-line: #e2e5f0;
+  --color-paper: #f3f4fa;
 
-  --color-aceptado: #15803d;
-  --color-rechazado: #c8102e;
-  --color-proceso: #f59e0b;
-  --color-error-envio: #6d28d9;
+  --color-aceptado: #13714a;
+  --color-rechazado: #b3261e;
+  --color-proceso: #2245c2;
+  --color-error-envio: #7428b4;
 }
