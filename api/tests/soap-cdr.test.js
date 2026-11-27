@@ -50,6 +50,12 @@ describe('Cliente SOAP sendBill', () => {
     expect(error.codigo).toBeNull();
   });
 
+  test('una respuesta que no es XML (429 bajo carga) también es ErrorSunat, para reintentar', async () => {
+    const fetch = async () => ({ ok: false, status: 429, text: async () => 'Too Many Requests' });
+    const cliente = crearClienteSunat({ url: 'http://sunat', ruc: '20000000001', usuario: 'u', clave: 'c', fetch });
+    await expect(cliente.enviar('x.zip', Buffer.from('x'))).rejects.toMatchObject({ name: 'ErrorSunat', codigo: null });
+  });
+
   test('comprimir genera un ZIP con el archivo indicado', async () => {
     const zip = await JSZip.loadAsync(await comprimir('a.xml', '<a/>'));
     expect(await zip.file('a.xml').async('string')).toBe('<a/>');

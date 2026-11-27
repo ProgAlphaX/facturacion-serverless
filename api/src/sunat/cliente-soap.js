@@ -75,7 +75,13 @@ function crearClienteSunat({ url, ruc, usuario, clave, fetch = globalThis.fetch 
     }
 
     const cuerpo = await respuesta.text();
-    const doc = new DOMParser().parseFromString(cuerpo, 'text/xml');
+    // Un 429 o 502 intermedio no trae XML: debe contar como "SUNAT no responde" para que se reintente
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(cuerpo, 'text/xml');
+    } catch {
+      throw new ErrorSunat(`Respuesta ilegible de SUNAT (HTTP ${respuesta.status})`);
+    }
 
     const faultcode = primerTexto(doc, 'faultcode');
     if (faultcode) {
