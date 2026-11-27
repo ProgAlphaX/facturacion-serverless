@@ -30,10 +30,11 @@ flowchart LR
 | `infra/terraform/`       | Infraestructura como código: red, DynamoDB, S3, EC2                                        |
 | `postman/`               | Colección de pruebas de la API                                                             |
 | `ejemplos/`              | Comprobantes de ejemplo (válidos e inválidos) y catálogos SUNAT                            |
-| `scripts/`               | `encender.ps1` / `apagar.ps1` (NAT + EC2 bajo demanda) y `probar-api.sh` (pruebas de humo) |
+| `scripts/`               | `encender.ps1` / `apagar.ps1` (NAT + EC2 bajo demanda), `probar-api.sh` y `preparar-web.ps1` / `apagar-web.ps1` (backend de la web) |
 | `docker-compose.yml`     | Entorno local completo: API, SUNAT simulada, DynamoDB local y S3 local                     |
 | `docker-compose.aws.yml` | Versión para la EC2: API y SUNAT simulada con DynamoDB y S3 reales                         |
 | `serverless/`            | APF3: Lambdas, Step Functions, API Gateway, Cognito y CloudWatch (Serverless Framework)    |
+| `frontend/`              | Web local en Angular 22 que usa la API del APF3 (login, facturar y consultar)              |
 
 ## Estado del proyecto
 
@@ -49,6 +50,13 @@ flowchart LR
 | APF3 7   | Panel de CloudWatch y logs a 7 días                  | ✅     |
 | APF3 8   | Pruebas de integración (script y Postman)            | ✅     |
 | APF3 9–10 | Informe v3.0 y cierre (tag `v0.3-apf3`)             | ✅     |
+| Web 1    | Backend encendido y credenciales para la web        | ✅     |
+| Web 2    | Proyecto Angular 22 y proxy local                    | ✅     |
+| Web 3    | Login con Cognito (renovación de token y rutas protegidas) | ✅ |
+| Web 4    | Pantalla Facturar con reglas en vivo y ejemplos      | ✅     |
+| Web 5    | Consulta de comprobantes e historial local           | ✅     |
+| Web 6    | Listado y descargas desde AWS (2 rutas y 2 Lambdas nuevas) | ✅ |
+| Web 7    | Modo demo, scripts de encender/apagar, ensayo y cierre | ✅   |
 
 ## Requisitos
 
@@ -238,6 +246,19 @@ flowchart LR
 
 Los handlers de las Lambdas están en `api/src/lambdas/` y sus pruebas en `api/tests/`.
 
+### Rutas de la API desplegada
+
+Todas exigen el JWT de Cognito (`Authorization`) y la llave de API (`x-api-key`), y comparten el límite de 5 peticiones por segundo.
+
+| Ruta | Lambda | Qué hace |
+| ---- | ------ | -------- |
+| `POST /comprobantes` | Step Functions (integración directa) | Emite una factura o boleta: 201 `ACEPTADO` o `RECHAZADO`, 400 `INVALIDO`, 409 `DUPLICADO`, 502 `ERROR_ENVIO` |
+| `GET /comprobantes/{id}` | `consultar-comprobante` | Devuelve el registro completo (`RUC-TIPO-SERIE-NUMERO`) |
+| `GET /comprobantes?estado=&limite=&desde=` | `listar-comprobantes` | Lista paginada del emisor, del más nuevo al más antiguo (límite por defecto 50, máximo 100), con el conteo por estado |
+| `GET /comprobantes/{id}/archivos/{xml\|cdr\|pdf}` | `descargar-archivo` | Devuelve una URL de S3 que vence a los 5 minutos; la clave del archivo sale de DynamoDB, no de lo que envíe quien llama |
+
+Cada Lambda tiene su propio rol IAM de mínimo privilegio (`dynamodb:Query` para listar; `GetItem` y `s3:GetObject` solo sobre `firmados/`, `cdr/` y `pdf/` para descargar).
+
 ### Desplegar, probar y destruir el APF3
 
 Requisitos: AWS CLI con el perfil `fe-dev`, Node.js 22 o superior, PowerShell 7 y la capa permanente de Terraform ya creada (`terraform apply` en `infra/terraform/`).
@@ -252,11 +273,64 @@ npx serverless deploy
 aws cognito-idp admin-create-user --user-pool-id <GrupoUsuariosId> --username tester --message-action SUPPRESS --profile fe-dev --region us-east-1
 aws cognito-idp admin-set-user-password --user-pool-id <GrupoUsuariosId> --username tester --password "<clave>" --permanent --profile fe-dev --region us-east-1
 
-# 3. Probar la API desplegada (11 casos; pide la contraseña, no se guarda)
+# 3. Probar la API desplegada (15 casos; pide la contraseña, no se guarda)
 ./scripts/probar-api.ps1
 ```
 
 Para no generar costos al terminar: `npx serverless remove` en `serverless/` y después `terraform destroy` en `infra/terraform/`. El NAT Gateway y la EC2 del APF2 siguen apagados por defecto (`enable_nat` y `enable_ec2` en `false`). La API key y el JWT nunca se suben al repositorio: se obtienen con `aws apigateway get-api-key` y `aws cognito-idp initiate-auth`.
+
+## Monitoreo, alerta y escalabilidad
+
+| Qué | Detalle |
+| --- | --- |
+| Panel `fe-dev-facturacion` | Negocio (comprobantes por estado y monto), flujo, API y Lambdas (incluye memoria, CPU y red con Lambda Insights) y estado de las alarmas |
+| Alarmas | `fe-dev-error-envio-sunat` y `fe-dev-errores-lambda`, con aviso por correo (SNS) |
+| Correo de aviso | Variable `correo_operacion` de Terraform; se confirma una sola vez desde la bandeja |
+| Escalado | Lambda crea una instancia por petición concurrente (mín. 0, máx. 10 por la cuenta); API Gateway limita a 5 req/s |
+
+```powershell
+cd serverless
+./scripts/simular-sunat-caida.ps1   # dispara la alarma y restaura todo
+./scripts/prueba-carga.ps1          # 2 emisiones/s durante 45 s; crea comprobantes de prueba
+```
+
+## Web local (carpeta `frontend/`)
+
+Interfaz en **Angular 22** para usar la API del APF3 sin Postman: iniciar sesión con Cognito, emitir facturas y boletas, y consultar cada comprobante. Corre solo en local (no se publica). Usa la misma API del APF3, más dos rutas para listar y descargar: el servidor de desarrollo reenvía `/api` a API Gateway agregando la llave de API, así el navegador no necesita CORS ni conoce la llave.
+
+```mermaid
+flowchart LR
+    N["Navegador<br/>localhost:4200"] -->|"/api + ID token"| P["Proxy de ng serve<br/>+ x-api-key"]
+    P --> G[API Gateway]
+    N -->|login| C[Cognito]
+    G --> S[Step Functions + Lambdas]
+```
+
+| Pantalla | Qué hace |
+| --- | --- |
+| Iniciar sesión | Cognito con usuario y contraseña; el token se renueva solo |
+| Inicio | Resumen de lo emitido desde la web |
+| Facturar | Formulario con totales automáticos, reglas R01–R11 en vivo, 9 ejemplos y el resultado de cada caso |
+| Comprobantes | Listado desde AWS (todo lo emitido, también desde Postman), filtro por estado, «Cargar más», consulta por número y descarga del PDF |
+| Detalle | Datos, respuesta de SUNAT y descarga del XML, el CDR y el PDF (enlace temporal de S3) |
+
+```powershell
+# Con AWS: un solo comando despliega la pila, crea el usuario de Cognito y escribe frontend/.env.local
+./scripts/preparar-web.ps1          # pide la contraseña del usuario (no se guarda)
+cd frontend
+npm ci
+npm start                           # http://localhost:4200
+
+# Sin AWS (datos simulados, sirve para mostrar la web con todo apagado)
+npm run start:demo                  # entra con cualquier usuario y contraseña
+
+# Al terminar: elimina la pila y comprueba que no quede nada que cobre por hora
+cd ..; ./scripts/apagar-web.ps1
+```
+
+El **modo demo** muestra una etiqueta «MODO DEMO», trae 12 comprobantes de muestra y responde igual que el backend real (mismas reglas, estados y errores). Dos ejemplos solo de demo provocan una caída de SUNAT y un 429, que con AWS no se pueden pedir a voluntad.
+
+Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 95 pruebas (`npm test -- --watch=false`); el backend tiene 119 (`npm test` en `api/`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
 
 ## Integrantes
 

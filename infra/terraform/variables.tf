@@ -93,3 +93,8 @@ variable "buildx_version" {
   type        = string
   default     = "v0.38.0"
 }
+
+variable "correo_operacion" {
+  description = "Correo que recibe las alarmas de CloudWatch (SNS)"
+  type        = string
+}

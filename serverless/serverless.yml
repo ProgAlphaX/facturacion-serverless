@@ -26,12 +26,30 @@ provider:
     S3_BUCKET: fe-${self:provider.stage}-comprobantes-${aws:accountId}
     SSM_CERTIFICADO: /facturacion/${self:provider.stage}/certificado
     SSM_LLAVE_PRIVADA: /facturacion/${self:provider.stage}/llave-privada
+    ETAPA: ${self:provider.stage}
+  # Lambda Insights: memoria, CPU y red de cada función
+  layers:
+    - arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:66
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: logs:CreateLogGroup
+          Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda-insights:*
+        - Effect: Allow
+          Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda-insights:*
 
 package:
   individually: true
 
 # esbuild une cada handler con el código que usa (incluso el de ../api y ../sunat-mock) en un solo archivo.
 custom:
+  # Los permisos comunes del proveedor (Lambda Insights) se suman al rol propio de cada función
+  serverless-iam-roles-per-function:
+    defaultInherit: true
   esbuild:
     bundle: true
     minify: false
@@ -102,6 +120,29 @@ functions:
       - Effect: Allow
         Action: dynamodb:GetItem
         Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  listar-comprobantes:
+    handler: src/listar-comprobantes.handler
+    description: Lista los comprobantes del emisor con filtro por estado y paginación (GET /comprobantes)
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:Query
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+
+  descargar-archivo:
+    handler: src/descargar-archivo.handler
+    description: Devuelve una URL temporal de S3 para el XML, CDR o PDF de un comprobante (GET /comprobantes/{id}/archivos/{tipo})
+    iamRoleStatements:
+      - Effect: Allow
+        Action: dynamodb:GetItem
+        Resource: arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/fe-${self:provider.stage}-comprobantes
+      # Solo lectura de las tres carpetas de archivos del comprobante
+      - Effect: Allow
+        Action: s3:GetObject
+        Resource:
+          - arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/firmados/*
+          - arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/cdr/*
+          - arn:aws:s3:::fe-${self:provider.stage}-comprobantes-${aws:accountId}/pdf/*
 
   pdf-automatico:
     handler: src/pdf-desde-s3.handler
@@ -319,6 +360,8 @@ resources:
                 id.$: $.reserva.id
                 cdr.$: $.sunat.cdr
                 hash.$: $.firma.hash
+                moneda.$: $.validacion.datos.moneda
+                total.$: $.validacion.datos.totales.total
                 archivos:
                   xml.$: $.firma.xmlKey
                   cdr.$: $.sunat.cdrKey
@@ -333,6 +376,8 @@ resources:
                 id.$: $.reserva.id
                 cdr.$: $.sunat.cdr
                 hash.$: $.firma.hash
+                moneda.$: $.validacion.datos.moneda
+                total.$: $.validacion.datos.totales.total
                 archivos:
                   xml.$: $.firma.xmlKey
                   cdr.$: $.sunat.cdrKey
@@ -454,6 +499,21 @@ resources:
         ParentId: !Ref RecursoComprobantes
         PathPart: '{id}'
 
+    # /comprobantes/{id}/archivos/{tipo}: descarga de los archivos de un comprobante
+    RecursoArchivos:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !Ref RecursoComprobanteId
+        PathPart: archivos
+
+    RecursoArchivoTipo:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ParentId: !Ref RecursoArchivos
+        PathPart: '{tipo}'
+
     ValidadorCuerpo:
       Type: AWS::ApiGateway::RequestValidator
       Properties:
@@ -556,10 +616,56 @@ resources:
         Principal: apigateway.amazonaws.com
         SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes/*'
 
+    # GET /comprobantes → lista paginada del emisor (misma protección: JWT + API key + plan de uso)
+    MetodoListar:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoComprobantes
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ListarDashcomprobantesLambdaFunction.Arn}/invocations'
+
+    PermisoApiListar:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref ListarDashcomprobantesLambdaFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes'
+
+    # GET /comprobantes/{id}/archivos/{tipo} → URL temporal de S3
+    MetodoDescargar:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        RestApiId: !Ref ApiFacturacion
+        ResourceId: !Ref RecursoArchivoTipo
+        HttpMethod: GET
+        AuthorizationType: COGNITO_USER_POOLS
+        AuthorizerId: !Ref AutorizadorJwt
+        ApiKeyRequired: true
+        Integration:
+          Type: AWS_PROXY
+          IntegrationHttpMethod: POST
+          Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DescargarDasharchivoLambdaFunction.Arn}/invocations'
+
+    PermisoApiDescargar:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !Ref DescargarDasharchivoLambdaFunction
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiFacturacion}/*/GET/comprobantes/*/archivos/*'
+
     # El plugin plugins/version-api.js le agrega un sufijo según el contenido de la API, para que API Gateway publique cada cambio
     DespliegueApi:
       Type: AWS::ApiGateway::Deployment
-      DependsOn: [MetodoEmitir, MetodoConsultar]
+      DependsOn: [MetodoEmitir, MetodoConsultar, MetodoListar, MetodoDescargar]
       Properties:
         RestApiId: !Ref ApiFacturacion
 
@@ -601,7 +707,43 @@ resources:
         KeyType: API_KEY
         UsagePlanId: !Ref PlanDeUso
 
-    # Panel de CloudWatch: sin alarmas ni avisos por correo (decisión del proyecto); solo observación
+    # Alarmas: avisan por correo mediante el tema SNS que crea Terraform
+    AlarmaErrorEnvio:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: fe-${self:provider.stage}-error-envio-sunat
+        AlarmDescription: Un comprobante no se pudo enviar a SUNAT tras los reintentos
+        Namespace: FacturacionElectronica
+        MetricName: Comprobantes
+        Dimensions:
+          - { Name: Etapa, Value: '${self:provider.stage}' }
+          - { Name: Estado, Value: ERROR_ENVIO }
+        Statistic: Sum
+        Period: 60
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - arn:aws:sns:${aws:region}:${aws:accountId}:fe-${self:provider.stage}-alertas
+
+    AlarmaErroresLambda:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: fe-${self:provider.stage}-errores-lambda
+        AlarmDescription: Alguna función Lambda de la cuenta terminó con error
+        Namespace: AWS/Lambda
+        MetricName: Errors
+        Statistic: Sum
+        Period: 60
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+        AlarmActions:
+          - arn:aws:sns:${aws:region}:${aws:accountId}:fe-${self:provider.stage}-alertas
+
+    # Panel de CloudWatch
     PanelFacturacion:
       Type: AWS::CloudWatch::Dashboard
       Properties:

@@ -20,6 +20,7 @@
     "@aws-sdk/client-dynamodb": "^3.1152.0",
     "@aws-sdk/client-s3": "^3.1152.0",
     "@aws-sdk/lib-dynamodb": "^3.1152.0",
+    "@aws-sdk/s3-request-presigner": "^3.1177.0",
     "@xmldom/xmldom": "^0.9.12",
     "express": "^5.3.0",
     "helmet": "^8.3.0",

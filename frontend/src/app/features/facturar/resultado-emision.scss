@@ -1,0 +1,85 @@
+.tarjeta {
+  --tono: #2245c2;
+  --fondo: #eaf0ff;
+
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 22px 18px;
+  border: 1px solid var(--fn-line);
+  border-radius: 16px;
+  background: var(--fn-surface);
+  text-align: center;
+  animation: aparecer 0.25s ease-out;
+
+  &.aceptado {
+    --tono: var(--fn-aceptado);
+    --fondo: #e4f7ec;
+  }
+
+  &.rechazado {
+    --tono: var(--fn-rechazado);
+    --fondo: #fdeceb;
+  }
+
+  &.envio {
+    --tono: var(--fn-error-envio);
+    --fondo: #f5ecff;
+  }
+
+  &.aviso {
+    --tono: #9a4f00;
+    --fondo: #fff3e2;
+  }
+}
+
+.marca {
+  width: 60px;
+  height: 60px;
+  padding: 12px;
+  border-radius: 50%;
+  background: var(--fondo);
+  color: var(--tono);
+  font-size: 36px;
+  line-height: 36px;
+}
+
+h3 {
+  color: var(--tono);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+p {
+  margin: 0;
+  color: var(--fn-ink-2);
+  font-size: 14px;
+}
+
+.id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+a[mat-flat-button],
+button[mat-flat-button] {
+  margin-top: 6px;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

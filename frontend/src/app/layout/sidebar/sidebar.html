@@ -1,0 +1,25 @@
+<a class="marca" routerLink="/inicio" aria-label="FacturaNube, inicio">
+  <fn-logo />
+  @if (!compacto()) {
+    <span>FacturaNube</span>
+  }
+</a>
+
+<nav aria-label="Menú principal">
+  @for (item of items; track item.ruta) {
+    <a
+      class="item"
+      [class.activo]="activo(item, url())"
+      [attr.aria-current]="activo(item, url()) ? 'page' : null"
+      [routerLink]="item.ruta"
+    >
+      <mat-icon fontSet="material-symbols-rounded">{{ item.icono }}</mat-icon>
+      <span>{{ item.etiqueta }}</span>
+    </a>
+  }
+</nav>
+
+<button class="item salir" type="button" (click)="auth.cerrarSesion()">
+  <mat-icon fontSet="material-symbols-rounded">logout</mat-icon>
+  <span>{{ compacto() ? 'Salir' : 'Cerrar sesión' }}</span>
+</button>

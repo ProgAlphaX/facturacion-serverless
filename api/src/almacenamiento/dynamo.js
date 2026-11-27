@@ -2,7 +2,15 @@
 // La escritura condicional impide registrar dos veces el mismo comprobante (regla R12).
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, UpdateCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+
+// Tope de seguridad: una consulta nunca trae más registros que estos aunque la tabla crezca.
+const MAXIMO_REGISTROS_POR_CONSULTA = 2000;
+const ESTADOS = ['PROCESANDO', 'ACEPTADO', 'RECHAZADO', 'ERROR_ENVIO'];
+const CAMPOS_RESUMEN = [
+  'id', 'tipo', 'serie', 'numero', 'estado', 'cliente', 'nombre', 'moneda', 'totales', 'total',
+  'fechaEmision', 'creadoEn', 'actualizadoEn', 'archivos', 'pdf',
+];
 
 const FORMATO_ID = /^(\d{11})-(01|03)-([A-Z0-9]{4})-(\d{8})$/;
 
@@ -60,7 +68,58 @@ function crearRepositorio({ tabla, cliente }) {
     return comprobante;
   }
 
-  return { reservar, actualizar, obtener };
+  // Lista los comprobantes de un emisor, del más nuevo al más antiguo, solo con los campos del resumen.
+  // El orden de la clave (tipo-serie-número) no es cronológico, por eso se ordena aquí por creadoEn.
+  // `resumen` cuenta todos los comprobantes del emisor por estado, sin importar el filtro.
+  async function listar({ ruc, estado, limite, desde }) {
+    const registros = [];
+    let siguienteClave;
+    do {
+      const { Items = [], LastEvaluatedKey } = await cliente.send(new QueryCommand({
+        TableName: tabla,
+        KeyConditionExpression: 'pk = :pk',
+        ExpressionAttributeValues: { ':pk': `EMISOR#${ruc}` },
+        // Alias para todos los nombres: "total", "tipo" y otros son palabras reservadas de DynamoDB.
+        ProjectionExpression: '#id, #tipo, #serie, #numero, #estado, #cliente.#nombre, #moneda, #totales.#total, #fechaEmision, #creadoEn, #actualizadoEn, #archivos.#pdf',
+        ExpressionAttributeNames: Object.fromEntries(CAMPOS_RESUMEN.map((campo) => [`#${campo}`, campo])),
+        ExclusiveStartKey: siguienteClave,
+      }));
+      registros.push(...Items);
+      siguienteClave = LastEvaluatedKey;
+    } while (siguienteClave && registros.length < MAXIMO_REGISTROS_POR_CONSULTA);
+
+    const resumen = Object.fromEntries(ESTADOS.map((e) => [e, 0]));
+    for (const r of registros) {
+      if (r.estado in resumen) resumen[r.estado] += 1;
+    }
+
+    const filtrados = registros
+      .filter((r) => !estado || r.estado === estado)
+      .sort((a, b) => String(b.creadoEn ?? '').localeCompare(String(a.creadoEn ?? '')));
+    const comprobantes = filtrados.slice(desde, desde + limite).map((r) => ({
+      id: r.id,
+      tipo: r.tipo,
+      serie: r.serie,
+      numero: r.numero,
+      estado: r.estado,
+      clienteNombre: r.cliente?.nombre ?? '',
+      moneda: r.moneda,
+      total: r.totales?.total ?? 0,
+      fechaEmision: r.fechaEmision,
+      creadoEn: r.creadoEn ?? '',
+      actualizadoEn: r.actualizadoEn ?? '',
+      tienePdf: Boolean(r.archivos?.pdf),
+    }));
+
+    return {
+      comprobantes,
+      total: filtrados.length,
+      siguiente: desde + limite < filtrados.length ? desde + limite : null,
+      resumen,
+    };
+  }
+
+  return { reservar, actualizar, obtener, listar };
 }
 
-module.exports = { crearRepositorio, crearClienteDynamo, claveDe, FORMATO_ID };
+module.exports = { crearRepositorio, crearClienteDynamo, claveDe, FORMATO_ID, ESTADOS };

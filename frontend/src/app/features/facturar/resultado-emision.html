@@ -1,0 +1,101 @@
+@let r = resultado();
+
+@switch (r.resultado) {
+  @case ('ACEPTADO') {
+    <section class="tarjeta aceptado" role="status">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">check_circle</mat-icon>
+      <h3>Comprobante aceptado</h3>
+      <p class="id">
+        {{ r.id }}
+        <button mat-icon-button type="button" aria-label="Copiar el número" (click)="copiar(r.id)">
+          <mat-icon fontSet="material-symbols-rounded">content_copy</mat-icon>
+        </button>
+      </p>
+      <p>CDR {{ r.cdr.codigo }} · {{ r.cdr.descripcion }}</p>
+      <a mat-flat-button [routerLink]="['/comprobantes', r.id]">Ver detalle</a>
+      <button mat-button type="button" (click)="otroComprobante.emit()">Emitir otro</button>
+    </section>
+  }
+  @case ('RECHAZADO') {
+    <section class="tarjeta rechazado" role="status">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">cancel</mat-icon>
+      <h3>Rechazado por SUNAT</h3>
+      <p class="id">{{ r.id }}</p>
+      <p>CDR {{ r.cdr.codigo }} · {{ r.cdr.descripcion }}</p>
+      @for (observacion of r.cdr.observaciones; track observacion) {
+        <p>{{ observacion }}</p>
+      }
+      <a mat-flat-button [routerLink]="['/comprobantes', r.id]">Ver detalle</a>
+      <button mat-button type="button" (click)="otroComprobante.emit()">Emitir otro</button>
+    </section>
+  }
+  @case ('INVALIDO') {
+    <section class="tarjeta rechazado" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">error</mat-icon>
+      <h3>El comprobante incumple reglas</h3>
+      <ul>
+        @for (e of r.errores; track $index) {
+          <li><strong>{{ e.regla }}</strong> · {{ e.mensaje }}</li>
+        }
+      </ul>
+    </section>
+  }
+  @case ('DUPLICADO') {
+    <section class="tarjeta aviso" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">content_copy</mat-icon>
+      <h3>Ese número ya fue emitido</h3>
+      <p class="id">{{ r.id }}</p>
+      <button mat-flat-button type="button" (click)="otroNumero.emit()">Usar otro número</button>
+    </section>
+  }
+  @case ('ERROR_ENVIO') {
+    <section class="tarjeta envio" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">cloud_off</mat-icon>
+      <h3>No se pudo enviar a SUNAT</h3>
+      <p class="id">{{ r.id }}</p>
+      <p>Quedó guardado para reenviarlo.</p>
+      <a mat-flat-button [routerLink]="['/comprobantes', r.id]">Ver detalle</a>
+    </section>
+  }
+  @case ('LIMITE_PETICIONES') {
+    <section class="tarjeta aviso" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">speed</mat-icon>
+      <h3>Demasiadas peticiones</h3>
+      <p>
+        @if (espera() > 0) {
+          Podrás reintentar en {{ espera() }} s.
+        } @else {
+          Ya puedes reintentar.
+        }
+      </p>
+    </section>
+  }
+  @case ('SESION_EXPIRADA') {
+    <section class="tarjeta aviso" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">lock_clock</mat-icon>
+      <h3>Tu sesión venció</h3>
+      <p>Vuelve a iniciar sesión.</p>
+    </section>
+  }
+  @case ('SIN_CONEXION') {
+    <section class="tarjeta aviso" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">wifi_off</mat-icon>
+      <h3>Sin conexión</h3>
+      <p>No se pudo llegar a la API.</p>
+    </section>
+  }
+  @case ('TIEMPO_AGOTADO') {
+    <section class="tarjeta aviso" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">hourglass_disabled</mat-icon>
+      <h3>La API tardó demasiado</h3>
+      <p>Revisa si ya se emitió antes de reintentar.</p>
+    </section>
+  }
+  @case ('ERROR') {
+    <section class="tarjeta aviso" role="alert">
+      <mat-icon class="marca" fontSet="material-symbols-rounded">warning</mat-icon>
+      <h3>Algo salió mal</h3>
+      <p>{{ r.mensaje }}</p>
+    </section>
+  }
+}

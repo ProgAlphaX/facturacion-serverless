@@ -1,0 +1,57 @@
+<header class="fn-saludo">
+  <div>
+    <h2>¡Hola, {{ auth.usuario() }}!</h2>
+    <p>{{ hoy | date: "EEEE d 'de' MMMM" }}</p>
+  </div>
+  <a mat-flat-button routerLink="/facturar">
+    <mat-icon fontSet="material-symbols-rounded">add</mat-icon>
+    Nuevo comprobante
+  </a>
+</header>
+
+@if (aviso(); as mensaje) {
+  <p class="fn-alerta" role="alert">
+    <mat-icon fontSet="material-symbols-rounded">error</mat-icon>
+    <span>{{ mensaje }}</span>
+    <button mat-button type="button" (click)="cargar()">Reintentar</button>
+  </p>
+}
+
+@if (cargando()) {
+  <fn-skeleton [filas]="1" [alto]="84" />
+  <fn-skeleton [filas]="5" [alto]="44" />
+} @else if (resumen()) {
+  <section class="contadores" aria-label="Resumen de comprobantes">
+    @for (tarjeta of tarjetas(); track tarjeta.tono) {
+      <a routerLink="/comprobantes" [queryParams]="tarjeta.estado ? { estado: tarjeta.estado } : {}">
+        <fn-stat-card [etiqueta]="tarjeta.etiqueta" [valor]="tarjeta.valor" [icono]="tarjeta.icono" [tono]="tarjeta.tono" />
+      </a>
+    }
+  </section>
+
+  <section class="fn-card panel">
+    <header>
+      <h3>Últimos comprobantes</h3>
+      <a mat-button routerLink="/comprobantes">Ver todos</a>
+    </header>
+    @if (ultimos().length) {
+      <ul>
+        @for (c of ultimos(); track c.id) {
+          <li>
+            <a [routerLink]="['/comprobantes', c.id]">
+              <span class="icono"><mat-icon fontSet="material-symbols-rounded">description</mat-icon></span>
+              <span class="texto">
+                <b>{{ c.clienteNombre }}</b>
+                <small>{{ etiquetaTipo[c.tipo] }} {{ c.serie }}-{{ c.numero }} · {{ c.fechaEmision | date: 'd MMM' }}</small>
+              </span>
+              <span class="monto">{{ c.moneda === 'USD' ? 'US$' : 'S/' }} {{ c.total | number: '1.2-2' }}</span>
+              <fn-status-pill [estado]="c.estado" />
+            </a>
+          </li>
+        }
+      </ul>
+    } @else {
+      <fn-empty-state titulo="Todavía no hay comprobantes" />
+    }
+  </section>
+}

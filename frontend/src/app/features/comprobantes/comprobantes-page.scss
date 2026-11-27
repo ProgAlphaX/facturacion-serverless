@@ -1,0 +1,140 @@
+.herramientas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 16px 16px 12px;
+
+  form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  mat-form-field {
+    flex: 1;
+    max-width: 480px;
+  }
+}
+
+.recargar {
+  background: var(--fn-brand-soft);
+  color: var(--fn-brand);
+}
+
+.error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--fn-rechazado);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 14px;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--fn-line);
+    border-radius: 999px;
+    background: var(--fn-surface);
+    color: var(--fn-ink-2);
+    font: 700 13px/1 'Nunito Sans', sans-serif;
+    cursor: pointer;
+
+    &.activo {
+      border-color: var(--fn-brand);
+      background: var(--fn-brand-soft);
+      color: var(--fn-brand);
+    }
+  }
+
+  small {
+    color: var(--fn-ink-3);
+    font-size: 12px;
+  }
+}
+
+.punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.punto--ACEPTADO { background: #1f9d57; }
+.punto--RECHAZADO { background: #e5484d; }
+.punto--PROCESANDO { background: #3b63f0; }
+.punto--ERROR_ENVIO { background: #9b4ddb; }
+
+td {
+  b,
+  small {
+    display: block;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--fn-ink-3);
+    font-size: 12.5px;
+  }
+}
+
+.cliente {
+  max-width: 280px;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sin-salto {
+  white-space: nowrap;
+}
+
+tbody tr:hover {
+  background: var(--fn-hover);
+}
+
+.cargando {
+  padding: 0 16px 16px;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--fn-line);
+}
+
+.conteo {
+  color: var(--fn-ink-3);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.girando {
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}

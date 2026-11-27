@@ -1,0 +1,160 @@
+@if (cargando() && resultado() === null) {
+  <fn-skeleton [filas]="1" [alto]="90" />
+  <fn-skeleton [filas]="6" [alto]="36" />
+}
+
+@if (resultado(); as r) {
+  @switch (r.resultado) {
+    @case ('ENCONTRADO') {
+      @let c = r.comprobante;
+      <header class="fn-saludo">
+        <div>
+          <h2>{{ etiquetaTipo[c.tipo] }} {{ c.serie }}-{{ c.numero }}</h2>
+          <p class="numero">{{ c.id }}</p>
+        </div>
+        <div class="estado">
+          <fn-status-pill [estado]="c.estado" />
+          <button mat-icon-button type="button" aria-label="Actualizar" [disabled]="cargando()" (click)="actualizar()">
+            <mat-icon fontSet="material-symbols-rounded">refresh</mat-icon>
+          </button>
+        </div>
+      </header>
+
+      <div class="cuerpo">
+        <div class="columna">
+          <section class="fn-card bloque">
+            <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">person</mat-icon>Cliente</h3>
+            <dl>
+              <dt>Nombre</dt>
+              <dd>{{ c.cliente.nombre }}</dd>
+              <dt>{{ etiquetaDocumento[c.cliente.tipoDoc] }}</dt>
+              <dd>{{ c.cliente.numDoc }}</dd>
+              <dt>Fecha</dt>
+              <dd>{{ c.fechaEmision | date: 'd MMM y' }}</dd>
+            </dl>
+          </section>
+
+          <section class="fn-card">
+            <div class="fn-tabla items">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Descripción</th>
+                    <th scope="col">Unidad</th>
+                    <th scope="col" class="derecha">Cantidad</th>
+                    <th scope="col" class="derecha">Valor unitario</th>
+                    <th scope="col" class="derecha">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of c.items; track $index) {
+                    <tr>
+                      <td>{{ item.descripcion }}</td>
+                      <td>{{ etiquetaUnidad[item.unidad] }}</td>
+                      <td class="derecha">{{ item.cantidad }}</td>
+                      <td class="derecha">{{ item.valorUnitario | number: '1.2-2' }}</td>
+                      <td class="derecha">{{ importe(item.cantidad, item.valorUnitario) | number: '1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <dl class="totales">
+              <dt>Valor de venta</dt>
+              <dd>{{ simbolo() }} {{ c.totales.valorVenta | number: '1.2-2' }}</dd>
+              <dt>IGV (18 %)</dt>
+              <dd>{{ simbolo() }} {{ c.totales.igv | number: '1.2-2' }}</dd>
+              <dt class="total">Total</dt>
+              <dd class="total">{{ simbolo() }} {{ c.totales.total | number: '1.2-2' }}</dd>
+            </dl>
+          </section>
+        </div>
+
+        <aside class="columna">
+          <section class="fn-card bloque">
+            <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">verified</mat-icon>SUNAT</h3>
+            @if (c.cdr; as cdr) {
+              <p><b>CDR {{ cdr.codigo }}</b> · {{ cdr.descripcion }}</p>
+              @for (observacion of cdr.observaciones; track observacion) {
+                <p>{{ observacion }}</p>
+              }
+            } @else if (c.estado === 'ERROR_ENVIO') {
+              <p class="error">No se pudo enviar a SUNAT{{ c.error ? ' (' + c.error + ')' : '' }}.</p>
+            } @else {
+              <p>Sin respuesta todavía.</p>
+            }
+            @if (c.hash; as hash) {
+              <p class="hash" title="Huella (hash)">{{ hash }}</p>
+            }
+          </section>
+
+          <section class="fn-card bloque">
+            <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">folder_zip</mat-icon>Archivos</h3>
+            @if (avisoDescarga(); as aviso) {
+              <p class="error" role="alert">{{ aviso }}</p>
+            }
+            <div class="archivos">
+              @for (tipo of tiposArchivo; track tipo) {
+                <button type="button" [disabled]="claveDe(c, tipo) === undefined || descargando().has(tipo)" (click)="descargar(tipo)">
+                  <mat-icon fontSet="material-symbols-rounded">{{ tipo === 'pdf' ? 'picture_as_pdf' : tipo === 'cdr' ? 'verified' : 'code' }}</mat-icon>
+                  <span>
+                    {{ etiquetaArchivo[tipo] }}
+                    @if (claveDe(c, tipo) === undefined) {
+                      <small>{{ tipo === 'pdf' && esperandoPdf() ? 'generándose…' : 'no disponible' }}</small>
+                    }
+                  </span>
+                  @if (descargando().has(tipo) || (tipo === 'pdf' && esperandoPdf())) {
+                    <mat-spinner diameter="18" />
+                  } @else {
+                    <mat-icon fontSet="material-symbols-rounded">download</mat-icon>
+                  }
+                </button>
+              }
+            </div>
+          </section>
+        </aside>
+      </div>
+    }
+    @case ('NO_EXISTE') {
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="No existe ese comprobante">
+          <p>{{ r.mensaje }}</p>
+        </fn-empty-state>
+      </section>
+    }
+    @case ('LIMITE_PETICIONES') {
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Demasiadas peticiones">
+          <button mat-flat-button type="button" (click)="actualizar()">Actualizar</button>
+        </fn-empty-state>
+      </section>
+    }
+    @case ('SESION_EXPIRADA') {
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Tu sesión venció" />
+      </section>
+    }
+    @case ('SIN_CONEXION') {
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Sin conexión">
+          <button mat-flat-button type="button" (click)="actualizar()">Reintentar</button>
+        </fn-empty-state>
+      </section>
+    }
+    @case ('TIEMPO_AGOTADO') {
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="La API tardó demasiado">
+          <button mat-flat-button type="button" (click)="actualizar()">Reintentar</button>
+        </fn-empty-state>
+      </section>
+    }
+    @case ('ERROR') {
+      <section class="fn-card" role="alert">
+        <fn-empty-state titulo="Algo salió mal">
+          <p>{{ r.mensaje }}</p>
+          <button mat-flat-button type="button" (click)="actualizar()">Reintentar</button>
+        </fn-empty-state>
+      </section>
+    }
+  }
+}

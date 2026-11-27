@@ -1,0 +1,25 @@
+:host {
+  display: block;
+  height: 100dvh;
+}
+
+.contenedor {
+  height: 100%;
+  background: var(--fn-paper);
+}
+
+.menu {
+  width: auto;
+  border-right: 1px solid var(--fn-line);
+}
+
+.contenido {
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}

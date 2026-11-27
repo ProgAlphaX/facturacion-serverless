@@ -1,0 +1,199 @@
+<header class="acciones">
+  <button mat-stroked-button type="button" [matMenuTriggerFor]="menuEjemplos">
+    <mat-icon fontSet="material-symbols-rounded">auto_awesome</mat-icon>
+    Cargar ejemplo
+  </button>
+  <mat-menu #menuEjemplos="matMenu">
+    @for (ejemplo of ejemplos; track ejemplo.clave) {
+      <button mat-menu-item type="button" (click)="cargarEjemplo(ejemplo.clave)">
+        <span class="ejemplo">
+          {{ ejemplo.etiqueta }}
+          <small>{{ ejemplo.esperado }}</small>
+        </span>
+      </button>
+    }
+  </mat-menu>
+</header>
+
+<form class="cuerpo" [formGroup]="formulario" (ngSubmit)="emitir()" novalidate>
+  <div class="columna">
+    <section class="fn-card bloque">
+      <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">description</mat-icon>Comprobante</h3>
+      <div class="fila">
+        <mat-form-field appearance="outline">
+          <mat-label>Tipo</mat-label>
+          <mat-select formControlName="tipo">
+            @for (tipo of tipos; track tipo[0]) {
+              <mat-option [value]="tipo[0]">{{ tipo[1] }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Serie</mat-label>
+          <input matInput formControlName="serie" maxlength="4" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Número</mat-label>
+          <input matInput type="number" formControlName="numero" min="1" />
+        </mat-form-field>
+      </div>
+      @for (aviso of avisos('tipo'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+      @for (aviso of avisos('serie'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+      @for (aviso of avisos('numero'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+      <div class="fila">
+        <mat-form-field appearance="outline">
+          <mat-label>Fecha de emisión</mat-label>
+          <input matInput type="date" formControlName="fechaEmision" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Moneda</mat-label>
+          <mat-select formControlName="moneda">
+            @for (moneda of monedas; track moneda) {
+              <mat-option [value]="moneda">{{ moneda }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      @for (aviso of avisos('fechaEmision'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+      @for (aviso of avisos('moneda'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+    </section>
+
+    <section class="fn-card bloque" formGroupName="cliente">
+      <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">person</mat-icon>Cliente</h3>
+      <div class="fila">
+        <mat-form-field appearance="outline">
+          <mat-label>Documento</mat-label>
+          <mat-select formControlName="tipoDoc">
+            @for (documento of documentos; track documento[0]) {
+              <mat-option [value]="documento[0]">{{ documento[1] }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Número de documento</mat-label>
+          <input matInput formControlName="numDoc" />
+        </mat-form-field>
+      </div>
+      @for (aviso of avisos('cliente'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+      <mat-form-field appearance="outline">
+        <mat-label>Nombre o razón social</mat-label>
+        <input matInput formControlName="nombre" />
+      </mat-form-field>
+      @for (aviso of avisos('cliente.nombre'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+    </section>
+
+    <section class="fn-card bloque">
+      <div class="encabezado-items">
+        <h3 class="fn-titulo"><mat-icon fontSet="material-symbols-rounded">shopping_bag</mat-icon>Ítems</h3>
+        <button mat-button type="button" (click)="agregarItem()">
+          <mat-icon fontSet="material-symbols-rounded">add</mat-icon>
+          Agregar
+        </button>
+      </div>
+      @for (aviso of avisos('items'); track aviso) {
+        <p class="aviso" role="alert">{{ aviso }}</p>
+      }
+      <div formArrayName="items">
+        @for (item of items.controls; track item; let i = $index) {
+          <div class="item" [formGroupName]="i">
+            <mat-form-field appearance="outline" class="descripcion">
+              <mat-label>Descripción</mat-label>
+              <input matInput formControlName="descripcion" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Unidad</mat-label>
+              <mat-select formControlName="unidad">
+                @for (unidad of unidades; track unidad[0]) {
+                  <mat-option [value]="unidad[0]">{{ unidad[1] }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Cantidad</mat-label>
+              <input matInput type="number" formControlName="cantidad" min="0" step="any" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Valor unitario</mat-label>
+              <input matInput type="number" formControlName="valorUnitario" min="0" step="any" />
+            </mat-form-field>
+            <button
+              mat-icon-button
+              type="button"
+              class="quitar"
+              [disabled]="items.length === 1"
+              [attr.aria-label]="'Quitar el ítem ' + (i + 1)"
+              (click)="quitarItem(i)"
+            >
+              <mat-icon fontSet="material-symbols-rounded">delete</mat-icon>
+            </button>
+          </div>
+          @for (aviso of avisos('items.' + i + '.descripcion'); track aviso) {
+            <p class="aviso" role="alert">Ítem {{ i + 1 }}: {{ aviso }}</p>
+          }
+          @for (aviso of avisos('items.' + i + '.cantidad'); track aviso) {
+            <p class="aviso" role="alert">Ítem {{ i + 1 }}: {{ aviso }}</p>
+          }
+          @for (aviso of avisos('items.' + i + '.valorUnitario'); track aviso) {
+            <p class="aviso" role="alert">Ítem {{ i + 1 }}: {{ aviso }}</p>
+          }
+        }
+      </div>
+    </section>
+  </div>
+
+  <aside class="columna lateral">
+    <section class="fn-card resumen">
+      <div class="monto">
+        <span>Total</span>
+        <b>{{ simbolo() }} {{ comprobante().totales.total | number: '1.2-2' }}</b>
+      </div>
+      <div class="detalle">
+        <dl>
+          <dt>Valor de venta</dt>
+          <dd>{{ simbolo() }} {{ comprobante().totales.valorVenta | number: '1.2-2' }}</dd>
+          <dt>IGV (18 %)</dt>
+          <dd>{{ simbolo() }} {{ comprobante().totales.igv | number: '1.2-2' }}</dd>
+        </dl>
+        @if (pendientes() > 0) {
+          <p class="pendiente">
+            <mat-icon fontSet="material-symbols-rounded">error</mat-icon>
+            {{ pendientes() }} {{ pendientes() === 1 ? 'aviso por corregir' : 'avisos por corregir' }}
+          </p>
+        }
+        <mat-slide-toggle [checked]="modoPrueba()" (change)="modoPrueba.set($event.checked)">Enviar con avisos</mat-slide-toggle>
+        <button mat-flat-button type="submit" class="emitir" [disabled]="bloqueado()">
+          @if (enviando()) {
+            <mat-spinner diameter="20" />
+            Emitiendo…
+          } @else if (espera() > 0) {
+            Espera {{ espera() }} s
+          } @else {
+            Emitir comprobante
+          }
+        </button>
+      </div>
+    </section>
+
+    @if (resultado(); as r) {
+      @defer (on immediate) {
+        <fn-resultado-emision [resultado]="r" [espera]="espera()" (otroComprobante)="otroNumero()" (otroNumero)="otroNumero()" />
+      } @placeholder {
+        <fn-skeleton [filas]="1" [alto]="160" />
+      }
+    }
+  </aside>
+</form>
