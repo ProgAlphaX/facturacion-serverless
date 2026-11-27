@@ -290,7 +290,7 @@ Para no generar costos al terminar: `npx serverless remove` en `serverless/` y d
 
 ```powershell
 cd serverless
-./scripts/simular-sunat-caida.ps1   # dispara la alarma y restaura todo
+./scripts/simular-sunat-caida.ps1   # apaga SUNAT hasta pulsar Enter; emite desde la web para disparar la alarma
 ./scripts/prueba-carga.ps1          # 2 emisiones/s durante 45 s; crea comprobantes de prueba
 ```
 

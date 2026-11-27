@@ -1,16 +1,16 @@
 #Requires -Version 7
 <#
-Demostración de la alerta: apunta enviar-sunat a una dirección que no existe, emite una factura y restaura todo.
+Demostración de la alerta: apunta enviar-sunat a una dirección que no existe y espera.
+Mientras tanto se emite una factura DESDE LA WEB; al pulsar Enter se restaura SUNAT.
 Se ven los 3 reintentos, el estado ERROR_ENVIO, la alarma fe-<etapa>-error-envio-sunat y el correo de aviso.
 
 Uso (desde serverless/):  ./scripts/simular-sunat-caida.ps1
-La contraseña se toma de FE_PASSWORD o se pide por pantalla; no se guarda.
+No pide contraseña. Si la ventana se cerró a medias, vuelve a ejecutarlo y pulsa Enter: deja SUNAT restaurada.
 #>
 param(
   [string]$Perfil = 'fe-dev',
   [string]$Region = 'us-east-1',
-  [string]$Etapa = 'dev',
-  [string]$Usuario = 'tester'
+  [string]$Etapa = 'dev'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,11 +22,6 @@ function Invoke-Aws {
   ($salida -join "`n").Trim()
 }
 
-function Get-SalidaPila($clave) {
-  Invoke-Aws cloudformation describe-stacks --stack-name "fe-serverless-$Etapa" `
-    --query "Stacks[0].Outputs[?OutputKey=='$clave'].OutputValue" --output text
-}
-
 function Set-Variables($variables) {
   $archivo = New-TemporaryFile
   try {
@@ -36,40 +31,25 @@ function Set-Variables($variables) {
   } finally { Remove-Item $archivo }
 }
 
-$url = Get-SalidaPila 'UrlApi'
-$clienteId = Get-SalidaPila 'ClienteApiId'
-$llave = Invoke-Aws apigateway get-api-key --api-key (Get-SalidaPila 'LlaveApiId') --include-value --query value --output text
-$clave = $env:FE_PASSWORD
-if (-not $clave) {
-  $segura = Read-Host "Contraseña de Cognito para '$Usuario'" -AsSecureString
-  $clave = [System.Net.NetworkCredential]::new('', $segura).Password
-}
-$jwt = Invoke-Aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH --client-id $clienteId `
-  --auth-parameters "USERNAME=$Usuario,PASSWORD=$clave" --query AuthenticationResult.IdToken --output text
-
-$originales = Invoke-Aws lambda get-function-configuration --function-name $funcion --query Environment.Variables --output json |
+$variables = Invoke-Aws lambda get-function-configuration --function-name $funcion --query Environment.Variables --output json |
   ConvertFrom-Json -AsHashtable
-
-$factura = Get-Content (Join-Path $PSScriptRoot '../../ejemplos/factura-valida.json') -Raw | ConvertFrom-Json
-$factura.numero = Get-Random -Minimum 90000000 -Maximum 99999999
-$zonaLima = [TimeZoneInfo]::FindSystemTimeZoneById('SA Pacific Standard Time')
-$factura.fechaEmision = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $zonaLima).ToString('yyyy-MM-dd')
+# La dirección correcta se toma de la SUNAT simulada, no de lo que tenga ahora la función (podría estar rota)
+$sunat = Invoke-Aws lambda get-function-url-config --function-name "fe-serverless-$Etapa-sunat-mock" --query FunctionUrl --output text
+$correctas = $variables.Clone()
+$correctas['SUNAT_URL'] = "${sunat}billService"
 
 try {
-  Write-Host 'Simulando que SUNAT no responde...' -ForegroundColor Yellow
-  $rotas = $originales.Clone()
+  Write-Host 'Apagando SUNAT...' -ForegroundColor Yellow
+  $rotas = $correctas.Clone()
   $rotas['SUNAT_URL'] = 'https://sunat-caida.invalid/billService'
   Set-Variables $rotas
 
-  Write-Host 'Emitiendo una factura (tarda unos 20 segundos por los reintentos)...'
-  $reloj = [Diagnostics.Stopwatch]::StartNew()
-  $r = Invoke-WebRequest -Uri "$url/comprobantes" -Method Post -ContentType 'application/json' -SkipHttpErrorCheck `
-    -Headers @{ Authorization = $jwt; 'x-api-key' = $llave } -Body ($factura | ConvertTo-Json -Depth 10)
-  Write-Host "Respuesta $($r.StatusCode) en $([math]::Round($reloj.Elapsed.TotalSeconds, 1)) s: $($r.Content)"
+  Write-Host ''
+  Write-Host 'SUNAT ESTÁ CAÍDA. Ahora emite una factura desde la web (tarda unos 20 segundos).' -ForegroundColor Red
+  Read-Host 'Cuando la web muestre el error, pulsa Enter para restaurar' | Out-Null
 } finally {
-  Write-Host 'Restaurando la dirección de SUNAT...' -ForegroundColor Cyan
-  Set-Variables $originales
+  Write-Host 'Restaurando SUNAT...' -ForegroundColor Cyan
+  Set-Variables $correctas
 }
 
-Write-Host ''
-Write-Host "Listo. En 1 a 3 minutos la alarma fe-$Etapa-error-envio-sunat pasa a 'In alarm' y llega el correo." -ForegroundColor Green
+Write-Host "Listo, SUNAT restaurada. La alarma fe-$Etapa-error-envio-sunat avisa por correo en 1 a 3 minutos." -ForegroundColor Green
