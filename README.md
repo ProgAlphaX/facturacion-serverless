@@ -279,9 +279,24 @@ aws cognito-idp admin-set-user-password --user-pool-id <GrupoUsuariosId> --usern
 
 Para no generar costos al terminar: `npx serverless remove` en `serverless/` y después `terraform destroy` en `infra/terraform/`. El NAT Gateway y la EC2 del APF2 siguen apagados por defecto (`enable_nat` y `enable_ec2` en `false`). La API key y el JWT nunca se suben al repositorio: se obtienen con `aws apigateway get-api-key` y `aws cognito-idp initiate-auth`.
 
+## Monitoreo, alerta y escalabilidad
+
+| Qué | Detalle |
+| --- | --- |
+| Panel `fe-dev-facturacion` | Negocio (comprobantes por estado y monto), flujo, API y Lambdas (incluye memoria, CPU y red con Lambda Insights) y estado de las alarmas |
+| Alarmas | `fe-dev-error-envio-sunat` y `fe-dev-errores-lambda`, con aviso por correo (SNS) |
+| Correo de aviso | Variable `correo_operacion` de Terraform; se confirma una sola vez desde la bandeja |
+| Escalado | Lambda crea una instancia por petición concurrente (mín. 0, máx. 10 por la cuenta); API Gateway limita a 5 req/s |
+
+```powershell
+cd serverless
+./scripts/simular-sunat-caida.ps1   # dispara la alarma y restaura todo
+./scripts/prueba-carga.ps1          # 2 emisiones/s durante 45 s; crea comprobantes de prueba
+```
+
 ## Web local (carpeta `frontend/`)
 
-Interfaz en **Angular 22** para usar la API del APF3 sin Postman: iniciar sesión con Cognito, emitir facturas y boletas, y consultar cada comprobante. Corre solo en local (no se publica) y **no modifica el backend**: el servidor de desarrollo reenvía `/api` a API Gateway agregando la llave de API, así el navegador no necesita CORS ni conoce la llave.
+Interfaz en **Angular 22** para usar la API del APF3 sin Postman: iniciar sesión con Cognito, emitir facturas y boletas, y consultar cada comprobante. Corre solo en local (no se publica). Usa la misma API del APF3, más dos rutas para listar y descargar: el servidor de desarrollo reenvía `/api` a API Gateway agregando la llave de API, así el navegador no necesita CORS ni conoce la llave.
 
 ```mermaid
 flowchart LR
@@ -315,7 +330,7 @@ cd ..; ./scripts/apagar-web.ps1
 
 El **modo demo** muestra una etiqueta «MODO DEMO», trae 12 comprobantes de muestra y responde igual que el backend real (mismas reglas, estados y errores). Dos ejemplos solo de demo provocan una caída de SUNAT y un 429, que con AWS no se pueden pedir a voluntad.
 
-Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 95 pruebas (`npm test -- --watch=false`); el backend tiene 115 (`npm test` en `api/`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
+Calidad: TypeScript estricto y ESLint sin `any` (`npm run typecheck`, `npm run lint`), más 95 pruebas (`npm test -- --watch=false`); el backend tiene 119 (`npm test` en `api/`). El detalle de arquitectura, estructura y límites conocidos está en [`frontend/README.md`](frontend/README.md).
 
 ## Integrantes
 
